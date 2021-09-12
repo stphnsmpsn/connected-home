@@ -1,0 +1,21 @@
+[package]
+name = "api-gateway"
+version = "0.1.0"
+authors = ["Steve Sampson <mail@stephensampson.dev>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+pretty_env_logger = "0.4"
+futures = { version = "0.3", default-features = false, features = ["alloc"] }
+tokio = { version = "1.0", features = ["fs", "sync", "time", "io-util"] }
+tokio-stream = "0.1.1"
+tokio-util = { version = "0.6", features = ["io"] }
+serde = { version = "1.0", features = ["derive"] }
+tracing = { version = "0.1.21", default-features = false, features = ["std"] }
+warp = "0.3"
+
+
+[dev-dependencies]
+tokio = { version = "1.0", features = ["macros", "rt-multi-thread", "io-util"] }

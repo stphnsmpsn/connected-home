@@ -1,0 +1,11 @@
+[package]
+name = "producer"
+version = "0.1.0"
+authors = ["Steve Sampson <mail@stephensampson.dev>"]
+edition = "2018"
+
+[dependencies]
+hyper = "0.14"
+routerify = "2.2.0"
+tokio = { version = "1.0", features = ["fs", "sync", "time", "io-util"] }
+

@@ -1,0 +1,7 @@
+#!/bin/bash
+
+main() {
+    echo "Running Pre-Commit Hooks"
+}
+
+main
