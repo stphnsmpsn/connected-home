@@ -85,3 +85,7 @@ tolerations: []
 
 affinity: {}
 
+# todo: Get rid of these and handle env vars / secrets better
+RUST_LOG: info
+DATABASE_URL: "postgres://postgres:password@postgresql/postgres"
+

@@ -1,0 +1,31 @@
+replicaCount: 1
+
+rabbitmq:
+  auth:
+    username: 'rabbitmq'  # todo: manage as a secret using vault
+    password: 'rabbitmq'  # todo: manage as a secret using vault
+  persistence:
+    enabled: true
+  volumePermissions:
+    enabled: true
+  replication:
+    enabled: false
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: "rabbitmq"
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-rabbitmq-svc
+spec:
+  selector:
+    app: rabbitmq
+  ports:
+    - protocol: TCP
+      port: 5672
+      targetPort: 5672

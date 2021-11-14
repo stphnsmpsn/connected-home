@@ -2,3 +2,4 @@
 members = [
     "crates/*",
 ]
+edition = "2018"

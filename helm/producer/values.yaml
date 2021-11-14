@@ -85,3 +85,4 @@ tolerations: []
 
 affinity: {}
 
+RUST_LOG: info

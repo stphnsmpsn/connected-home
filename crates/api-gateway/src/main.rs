@@ -1,9 +1,23 @@
 #![deny(warnings)]
-use api_gateway::{user_connected, Users, INDEX_HTML};
-use serde::Serialize;
-use warp::Filter;
+extern crate pretty_env_logger;
+#[macro_use]
+extern crate log;
+#[macro_use]
+extern crate diesel;
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+use tokio::sync::Mutex;
+use warp::{Filter, Rejection, Reply};
+mod api;
+mod schema;
+mod users;
+use api::api::api;
+use diesel::{Connection, PgConnection};
+use std::convert::Infallible;
+use std::env;
+use warp::http::{HeaderMap, HeaderValue, StatusCode};
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 enum Status {
     Ok,
 }
@@ -11,30 +25,66 @@ enum Status {
 #[tokio::main]
 async fn main() {
     pretty_env_logger::init();
-    let users = Users::default();
-    let users = warp::any().map(move || users.clone());
+    info!("API Gateway Starting Up...");
 
-    let chat = warp::path("chat")
-        .and(warp::get())
-        .and(warp::ws())
-        .and(users)
-        .map(|ws: warp::ws::Ws, users| ws.on_upgrade(move |socket| user_connected(socket, users)));
+    // todo: manage config & secrets
+    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    debug!("Database URL: {}", database_url);
 
-    let home = warp::path("home")
-        .and(warp::get())
-        .map(|| warp::reply::html(INDEX_HTML));
+    let connection = Arc::new(Mutex::new(
+        PgConnection::establish(&database_url)
+            .expect(&format!("Error connecting to {}", database_url)),
+    ));
+
+    let connection = warp::any().map(move || Arc::clone(&connection));
+
+    let mut headers = HeaderMap::new();
+    headers.insert("Access-Control-Allow-Origin", HeaderValue::from_static("*"));
+    headers.insert(
+        "Access-Control-Allow-Methods",
+        HeaderValue::from_static("*"),
+    );
+    headers.insert(
+        "Access-Control-Allow-Headers",
+        HeaderValue::from_static("*"),
+    );
+
+    let api = warp::path("api")
+        .and(warp::method())
+        .and(warp::path::param())
+        .and(warp::body::bytes())
+        .and(warp::header::optional::<String>("authorization"))
+        .and(connection.clone())
+        .and_then(api)
+        .with(warp::reply::with::headers(headers.clone()));
 
     let ready = warp::path("ready")
         .and(warp::get())
-        .map(|| warp::reply::json(&Status::Ok));
+        .map(|| warp::reply::json(&Status::Ok))
+        .with(warp::reply::with::headers(headers.clone()));
 
     let healthy = warp::path("healthy")
         .and(warp::get())
-        .map(|| warp::reply::json(&Status::Ok));
+        .map(|| warp::reply::json(&Status::Ok))
+        .with(warp::reply::with::headers(headers.clone()));
 
-    let routes = home.or(chat).or(healthy).or(ready);
+    let options = warp::options()
+        .map(|| warp::reply::json(&Status::Ok))
+        .with(warp::reply::with::headers(headers.clone()));
+
+    let routes = options
+        .or(healthy)
+        .or(ready)
+        .or(api)
+        .recover(handle_rejection);
 
     // we listen on all interfaces because we will be inside of a container
     // and we do not know what IP we will be assigned
     warp::serve(routes).run(([0, 0, 0, 0], 8082)).await;
+}
+
+// todo: beef up this handler
+async fn handle_rejection(_: Rejection) -> Result<impl Reply, Infallible> {
+    let empty: Vec<u8> = Vec::new();
+    Ok(warp::reply::with_status(empty, StatusCode::BAD_REQUEST))
 }

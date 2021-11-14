@@ -12,3 +12,4 @@ Cargo.lock
 .helm
 .idea
 tilt_modules/
+helm/**/charts/

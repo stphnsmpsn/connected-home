@@ -1,0 +1,20 @@
+replicaCount: 1
+
+postgresql:
+  fullnameOverride: 'postgresql'
+  postgresqlUsername: 'postgres'  # todo: manage as a secret using vault
+  postgresqlPassword: 'password'  # todo: manage as a secret using vault
+  persistence:
+    enabled: true
+  volumePermissions:
+    enabled: true
+  replication:
+    enabled: false
+  initdbScripts:
+    psql.sql: |
+#      PSQL COMMANDS HERE;
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: "postgresql"

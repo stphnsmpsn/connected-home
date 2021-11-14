@@ -16,19 +16,24 @@ technologies to use in the project.
 ## TODO
 ___
 
-* [ ] Set up persistent volume for MariaDB (consider PostgreSQL)
+* [x] Set up persistent volume for MariaDB (consider PostgreSQL)
+* [x] Create user registration / authentication mechanism using JWTs
+* [ ] Implement permissions and groups 
+  * [ ] Add these to the JWT 'claims'
 * [ ] Evaluate DB options for logging sensor data (no SQL)  
 * [ ] Create mqtt consumer that can deserialize incoming messages into a struct and serialize to DB
 * [ ] Create Raspberry Pi (or similar) w/sensor and create base image + producer application
     * [ ] Create mock producer for testing locally and for integration testing
-* [ ] Create useful ready/healthy probes for services
+* [ ] Create useful READY/healthy probes for services
 * [ ] Define pre-commit and pre-push hooks
 * [ ] Create CI/CD pipeline    
 * [ ] gRPC for synchronous inter-service communication (maybe)
+  * [ ] Proxy requests that hit API Gateway to the appropriate service rather than handling all requests in API Service
 * [ ] GraphQL API (maybe)
 * [ ] Frontend for visualizing data
     * [ ] Define user/groups/permission model and create administrator frontend for provisioning (mobile app?)
-  * [ ] Create a dashboard where users can view and filter data from their sensors
+    * [ ] Create a dashboard where users can view and filter data from their sensors
+    * [ ] Prometheus & Grafana
 * [ ] Create alarms/alerts and trigger user customizable actions (send an email / Slack message). 
 
 ## Requirements

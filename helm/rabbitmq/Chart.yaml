@@ -1,0 +1,11 @@
+apiVersion: v2
+name: postgresql
+description: Our PostgreSQL Chart
+type: application
+version: 0.1.0
+appVersion: 0.1.0
+
+dependencies:
+  - name: rabbitmq
+    version: 8.22.0
+    repository: https://charts.bitnami.com/bitnami/

@@ -1,75 +1,143 @@
 # Tiltfile
-load('ext://helm_remote', 'helm_remote')
-
-local_resource('cargo build', 'make cargo-build', trigger_mode=TRIGGER_MODE_MANUAL)
 
 local_resource(
-    'pack api gateway',
-    'make pack-api-gateway',
-    trigger_mode=TRIGGER_MODE_AUTO,
-    resource_deps=[
-       'cargo build',
-    ],
+    'cargo-build',
+    'make cargo-build',
+    labels=['Build']
 )
 
 local_resource(
-    'pack consumer',
-    'make pack-consumer',
-    trigger_mode=TRIGGER_MODE_AUTO,
-    resource_deps=[
-       'cargo build',
-    ],
+    'update-helm',
+    'for d in helm/*; do [[ -f "$d"/Chart.yaml ]] && helm dependency update $d; done',
+    auto_init=False,
+    trigger_mode=TRIGGER_MODE_MANUAL,
+    labels=['Build']
 )
 
 local_resource(
-    'pack producer',
-    'make pack-producer',
-    trigger_mode=TRIGGER_MODE_AUTO,
+    'pack-api-gateway',
+    'eval $(minikube docker-env) \
+        && docker build -t api-gateway --build-arg binary_location=target/release/api-gateway --build-arg binary_name=api-gateway .',
     resource_deps=[
-       'cargo build',
+       'cargo-build'
     ],
+    labels=['Build']
+)
+
+local_resource(
+    'pack-consumer',
+    'eval $(minikube docker-env) \
+            && docker build -t consumer --build-arg binary_location=target/release/consumer --build-arg binary_name=consumer .',
+    resource_deps=[
+       'cargo-build'
+    ],
+    labels=['Build']
+)
+
+local_resource(
+    'pack-producer',
+    'eval $(minikube docker-env) \
+            && docker build -t producer --build-arg binary_location=target/release/producer --build-arg binary_name=producer .',
+    resource_deps=[
+       'cargo-build'
+    ],
+    labels=['Build']
 )
 
 k8s_yaml(helm('./helm/api-gateway'))
 k8s_resource(
-   workload='api-gateway',
-   resource_deps=[
-   'cargo build',
-   'pack api gateway',
-   ],
-   port_forwards=[
-      port_forward(8082, 8082, name='API Gateway'),
-   ]
+    workload='api-gateway',
+    resource_deps=[
+        'pack-api-gateway',
+        'update-helm',
+    ],
+    port_forwards=[
+        port_forward(8082, 8082, name='API Gateway'),
+    ],
+    labels=['Core_Services']
 )
 
 k8s_yaml(helm('./helm/producer'))
 k8s_resource(
     workload='producer',
     resource_deps=[
-        'cargo build',
-        'pack producer',
+        'pack-producer',
+        'update-helm',
     ],
+    labels=['Core_Services']
 )
 
 k8s_yaml(helm('./helm/consumer'))
 k8s_resource(
     workload='consumer',
     resource_deps=[
-        'cargo build',
-        'pack consumer',
+        'pack-consumer',
+        'update-helm',
     ],
+    labels=['Core_Services']
 )
 
-helm_remote(
-    'mariadb',
-    repo_name='bitnami',
-    repo_url='https://charts.bitnami.com/bitnami',
-    version='9.5.1',
+k8s_yaml(helm(
+    './helm/postgresql',
+    name='postgresql',
+    values=[
+        'helm/postgresql/values.yaml'
+    ]
+))
+k8s_resource(
+    workload='postgresql',
+    resource_deps=[
+#        'update-helm',
+    ],
+    port_forwards=[
+      port_forward(5432, 5432, name='PostgreSQL'),
+    ],
+    labels=['PostgreSQL']
 )
 
-helm_remote(
-    'rabbitmq',
-    repo_name='bitnami',
-    repo_url='https://charts.bitnami.com/bitnami',
-    version='8.22.0',
+k8s_yaml(helm(
+    './helm/rabbitmq',
+    name='rabbitmq',
+    values=[
+        'helm/rabbitmq/values.yaml'
+    ]
+))
+k8s_resource(
+    workload='rabbitmq',
+    resource_deps=[
+        'update-helm',
+    ],
+    port_forwards=[
+      port_forward(5672, 5672, name='Rabbit MQ'),
+      port_forward(15672, 15672, name='Rabbit MQ Console'),
+    ],
+    labels=['RabbitMQ']
+)
+
+local_resource(
+    'build-frontend',
+    'rm -rf frontend/build \
+     	&& npm --prefix frontend install \
+     	&& npm --prefix frontend run build \
+        && eval $(minikube docker-env) \
+        && docker build -f frontend/Dockerfile -t frontend:latest ./frontend',
+    labels=['Build']
+)
+
+k8s_yaml(helm(
+    './helm/frontend',
+    name='frontend',
+    values=[
+        'helm/frontend/values.yaml'
+    ]
+))
+k8s_resource(
+    workload='frontend',
+    resource_deps=[
+        'build-frontend',
+    ],
+    port_forwards=[
+      port_forward(8000, 80, name='Frontend'),
+    ],
+    labels=['Frontend']
 )
