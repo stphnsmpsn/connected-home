@@ -1,8 +1,7 @@
-use crate::users::user::User;
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Utc};
 use hmac::{Hmac, NewMac};
 use jwt::{Error, VerifyWithKey};
-use jwt::{Header, SignWithKey, Token};
+use jwt::{Header, Token};
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use std::collections::BTreeMap;
@@ -54,9 +53,9 @@ impl Display for Jwt {
 }
 
 impl Jwt {
-    pub fn verify(&self) -> Result<BTreeMap<String, String>, JwtError> {
+    pub fn verify(&self, key: &str) -> Result<BTreeMap<String, String>, JwtError> {
         // todo: manage secrets
-        let key: Hmac<Sha256> = Hmac::new_from_slice(b"SUPERSECRETKEY").unwrap();
+        let key: Hmac<Sha256> = Hmac::new_from_slice(key.as_bytes()).unwrap();
 
         let token: Token<Header, BTreeMap<String, String>, _> =
             VerifyWithKey::verify_with_key(self.token.as_str(), &key)?;
@@ -71,25 +70,5 @@ impl Jwt {
             }
             _ => Err(JwtError::INVALID),
         };
-    }
-
-    pub fn create(user: &User) -> Jwt {
-        // todo: manage secrets
-        let key: Hmac<Sha256> = Hmac::new_from_slice(b"SUPERSECRETKEY").unwrap();
-
-        let mut claims = BTreeMap::<String, String>::new();
-        claims.insert(String::from("username"), user.username().clone());
-        // todo: choose appropriate expiry and implement a token refresh
-        let expiry = Utc::now() + Duration::minutes(10);
-        claims.insert(
-            String::from("expiry"),
-            format!("{}", expiry.format("%Y-%m-%d %H:%M:%S %z")),
-        );
-
-        let token = claims
-            .sign_with_key(&key)
-            .expect("If this fails, we have an algorithm mismatch between token header and key");
-
-        Jwt { token }
     }
 }

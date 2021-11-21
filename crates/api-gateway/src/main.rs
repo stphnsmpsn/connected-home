@@ -2,20 +2,14 @@
 extern crate pretty_env_logger;
 #[macro_use]
 extern crate log;
-#[macro_use]
-extern crate diesel;
+
+use crate::api::api;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use tokio::sync::Mutex;
-use warp::{Filter, Rejection, Reply};
-mod api;
-mod schema;
-mod users;
-use api::api::api;
-use diesel::{Connection, PgConnection};
 use std::convert::Infallible;
-use std::env;
 use warp::http::{HeaderMap, HeaderValue, StatusCode};
+use warp::{Filter, Rejection, Reply};
+
+mod api;
 
 #[derive(Serialize, Deserialize)]
 enum Status {
@@ -26,17 +20,6 @@ enum Status {
 async fn main() {
     pretty_env_logger::init();
     info!("API Gateway Starting Up...");
-
-    // todo: manage config & secrets
-    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    debug!("Database URL: {}", database_url);
-
-    let connection = Arc::new(Mutex::new(
-        PgConnection::establish(&database_url)
-            .expect(&format!("Error connecting to {}", database_url)),
-    ));
-
-    let connection = warp::any().map(move || Arc::clone(&connection));
 
     let mut headers = HeaderMap::new();
     headers.insert("Access-Control-Allow-Origin", HeaderValue::from_static("*"));
@@ -54,7 +37,6 @@ async fn main() {
         .and(warp::path::param())
         .and(warp::body::bytes())
         .and(warp::header::optional::<String>("authorization"))
-        .and(connection.clone())
         .and_then(api)
         .with(warp::reply::with::headers(headers.clone()));
 

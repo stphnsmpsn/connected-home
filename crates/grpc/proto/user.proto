@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package user;
+
+service UserService {
+  rpc register (RegisterRequest) returns (RegisterResponse);
+  rpc login (LoginRequest) returns (LoginResponse);
+  rpc profile (ProfileRequest) returns (ProfileResponse);
+}
+
+message UserCredentials {
+  string username = 1;
+  string password = 2;
+}
+
+message LoginRequest {
+  UserCredentials credentials = 1;
+}
+
+message LoginResponse {
+  string jwt = 1;
+}
+
+message RegisterRequest {
+  UserCredentials credentials = 1;
+}
+
+message RegisterResponse {
+  string jwt = 1;
+}
+
+message ProfileRequest {}
+
+message ProfileResponse {
+  Profile profile = 1;
+}
+
+message Profile {
+  string first_name = 1;
+  string last_name = 2;
+  int32 street_number = 3;
+  string street = 4;
+  string city = 5;
+  string postal_code = 6;
+}
+

@@ -1,10 +1,11 @@
-use self::super::super::schema::users;
-use crate::api::api::DeserializationError;
 use argon2::{self, Config};
 use chrono::{NaiveDateTime, Utc};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use std::convert::TryFrom;
+
+use self::super::schema::users;
+
+pub mod handlers;
 
 #[derive(Debug, Deserialize, Serialize, Queryable, Insertable)]
 #[table_name = "users"]
@@ -34,20 +35,6 @@ impl User {
 
     pub fn username(&self) -> &String {
         &self.username
-    }
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct UserRequest {
-    pub username: String,
-    pub password: String,
-}
-
-impl TryFrom<&[u8]> for UserRequest {
-    type Error = DeserializationError;
-
-    fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
-        serde_json::from_slice(bytes).map_err(|_| DeserializationError::InvalidRequestBody)
     }
 }
 

@@ -1,0 +1,22 @@
+replicaCount: 1
+
+vault:
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: "vault"
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-vault-svc
+spec:
+  selector:
+    app: vault
+  ports:
+    - protocol: TCP
+      port: 8200
+      targetPort: 8200

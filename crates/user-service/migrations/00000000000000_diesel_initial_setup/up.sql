@@ -12,9 +12,9 @@
 -- # Example
 --
 -- ```sql
--- CREATE TABLE users (id SERIAL PRIMARY KEY, updated_at TIMESTAMP NOT NULL DEFAULT NOW());
+-- CREATE TABLE user (id SERIAL PRIMARY KEY, updated_at TIMESTAMP NOT NULL DEFAULT NOW());
 --
--- SELECT diesel_manage_updated_at('users');
+-- SELECT diesel_manage_updated_at('user');
 -- ```
 CREATE OR REPLACE FUNCTION diesel_manage_updated_at(_tbl regclass) RETURNS VOID AS $$
 BEGIN

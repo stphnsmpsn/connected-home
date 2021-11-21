@@ -27,8 +27,12 @@ ___
 * [ ] Create useful READY/healthy probes for services
 * [ ] Define pre-commit and pre-push hooks
 * [ ] Create CI/CD pipeline    
-* [ ] gRPC for synchronous inter-service communication (maybe)
-  * [ ] Proxy requests that hit API Gateway to the appropriate service rather than handling all requests in API Service
+* [x] gRPC for synchronous inter-service communication
+  * [x] Proxy requests that hit API Gateway to the appropriate service rather than handling all requests in API Service
+    * [x] Create user service for handling user registration, login, and profile retrieval 
+      * [ ] Properly handle errors in user service (no unwraps)
+      * [ ] Properly handle secrets in user service (hashicorp vault?)
+      * [ ] Properly handle config in user service
 * [ ] GraphQL API (maybe)
 * [ ] Frontend for visualizing data
     * [ ] Define user/groups/permission model and create administrator frontend for provisioning (mobile app?)

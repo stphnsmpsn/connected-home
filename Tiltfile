@@ -1,19 +1,30 @@
 # Tiltfile
 
+###################################################################################################
+#
+###################################################################################################
 local_resource(
     'cargo-build',
     'make cargo-build',
     labels=['Build']
 )
 
+###################################################################################################
+#
+###################################################################################################
 local_resource(
     'update-helm',
-    'for d in helm/*; do [[ -f "$d"/Chart.yaml ]] && helm dependency update $d; done',
+    'helm repo add bitnami https://charts.bitnami.com/bitnami \
+        && helm repo add hashicorp https://helm.releases.hashicorp.com \
+        && for d in helm/*; do [[ -f "$d"/Chart.yaml ]] && helm dependency update $d; done',
     auto_init=False,
     trigger_mode=TRIGGER_MODE_MANUAL,
     labels=['Build']
 )
 
+###################################################################################################
+#                                       API GATEWAY
+###################################################################################################
 local_resource(
     'pack-api-gateway',
     'eval $(minikube docker-env) \
@@ -23,27 +34,6 @@ local_resource(
     ],
     labels=['Build']
 )
-
-local_resource(
-    'pack-consumer',
-    'eval $(minikube docker-env) \
-            && docker build -t consumer --build-arg binary_location=target/release/consumer --build-arg binary_name=consumer .',
-    resource_deps=[
-       'cargo-build'
-    ],
-    labels=['Build']
-)
-
-local_resource(
-    'pack-producer',
-    'eval $(minikube docker-env) \
-            && docker build -t producer --build-arg binary_location=target/release/producer --build-arg binary_name=producer .',
-    resource_deps=[
-       'cargo-build'
-    ],
-    labels=['Build']
-)
-
 k8s_yaml(helm('./helm/api-gateway'))
 k8s_resource(
     workload='api-gateway',
@@ -57,16 +47,40 @@ k8s_resource(
     labels=['Core_Services']
 )
 
-k8s_yaml(helm('./helm/producer'))
-k8s_resource(
-    workload='producer',
+###################################################################################################
+#                                       User Service
+###################################################################################################
+local_resource(
+    'pack-user-service',
+    'eval $(minikube docker-env) \
+        && docker build -t user-service --build-arg binary_location=target/release/user-service --build-arg binary_name=user-service .',
     resource_deps=[
-        'pack-producer',
+       'cargo-build'
+    ],
+    labels=['Build']
+)
+k8s_yaml(helm('./helm/user-service'))
+k8s_resource(
+    workload='user-service',
+    resource_deps=[
+        'pack-user-service',
         'update-helm',
     ],
     labels=['Core_Services']
 )
 
+###################################################################################################
+#                                       Consumer
+###################################################################################################
+local_resource(
+    'pack-consumer',
+    'eval $(minikube docker-env) \
+            && docker build -t consumer --build-arg binary_location=target/release/consumer --build-arg binary_name=consumer .',
+    resource_deps=[
+       'cargo-build'
+    ],
+    labels=['Build']
+)
 k8s_yaml(helm('./helm/consumer'))
 k8s_resource(
     workload='consumer',
@@ -77,6 +91,32 @@ k8s_resource(
     labels=['Core_Services']
 )
 
+###################################################################################################
+#                                       Producer
+###################################################################################################
+local_resource(
+    'pack-producer',
+    'eval $(minikube docker-env) \
+            && docker build -t producer --build-arg binary_location=target/release/producer --build-arg binary_name=producer .',
+    resource_deps=[
+       'cargo-build'
+    ],
+    labels=['Build']
+)
+k8s_yaml(helm('./helm/producer'))
+k8s_resource(
+    workload='producer',
+    resource_deps=[
+        'pack-producer',
+        'update-helm',
+    ],
+    labels=['Core_Services']
+)
+
+
+###################################################################################################
+#                                       PostgreSQL
+###################################################################################################
 k8s_yaml(helm(
     './helm/postgresql',
     name='postgresql',
@@ -95,6 +135,9 @@ k8s_resource(
     labels=['PostgreSQL']
 )
 
+###################################################################################################
+#                                       RaabitMQ
+###################################################################################################
 k8s_yaml(helm(
     './helm/rabbitmq',
     name='rabbitmq',
@@ -114,6 +157,9 @@ k8s_resource(
     labels=['RabbitMQ']
 )
 
+###################################################################################################
+#                                       Frontend
+###################################################################################################
 local_resource(
     'build-frontend',
     'rm -rf frontend/build \
@@ -123,7 +169,6 @@ local_resource(
         && docker build -f frontend/Dockerfile -t frontend:latest ./frontend',
     labels=['Build']
 )
-
 k8s_yaml(helm(
     './helm/frontend',
     name='frontend',
@@ -141,3 +186,7 @@ k8s_resource(
     ],
     labels=['Frontend']
 )
+
+###################################################################################################
+#                                            END
+###################################################################################################
