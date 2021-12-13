@@ -1,5 +1,6 @@
 # Connected Home
-___
+
+[![Build Status](https://drone.stephensampson.dev/api/badges/stphnsmpsn/connected-home/status.svg)](https://drone.stephensampson.dev/stphnsmpsn/connected-home)
 
 A distributed multi-service application written in Rust and deployed to Kubernetes. Useful for collecting, aggregating, 
 and visualizing data from various sensors around the home. Disclaimer: There is little reason to be using Kubernetes 
@@ -8,13 +9,11 @@ readiness / health probes are worth it, but I'm sure using Docker compose would 
 
 
 ## What does it do?
-___
 
 Not much yet... Currently, I am working on the design, creating the base structure, evaluating and learning tools / 
 technologies to use in the project. 
 
 ## TODO
-___
 
 * [x] Set up persistent volume for MariaDB (consider PostgreSQL)
 * [x] Create user registration / authentication mechanism using JWTs
@@ -41,7 +40,6 @@ ___
 * [ ] Create alarms/alerts and trigger user customizable actions (send an email / Slack message). 
 
 ## Requirements
-___
 
 * [rust](https://www.rust-lang.org/tools/install)
 * [docker](https://www.docker.com/)
