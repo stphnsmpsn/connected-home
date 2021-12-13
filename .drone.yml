@@ -3,7 +3,22 @@ type: docker
 name: default
 
 steps:
-- name: Build
-  image: rust
+- name: Format
+  image: rustbuilder
+  pull: never
+  failure: ignore
   commands:
-  - cargo build
+    - cargo fmt -- --check
+ 
+- name: Clippy 
+  image: rustbuilder
+  pull: never
+  failure: ignore 
+  commands: 
+    - cargo clippy --all --all-targets --all-features -- -Dwarnings -Drust-2018-idioms -Ddeprecated
+
+- name: Build
+  image: rustbuilder
+  pull: never
+  commands:
+  - cargo build --release
