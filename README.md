@@ -1,6 +1,6 @@
 # Connected Home
 
-[![Build Status](https://drone.stephensampson.dev/api/badges/stphnsmpsn/connected-home/status.svg)](https://drone.stephensampson.dev/stphnsmpsn/connected-home)
+[![Build Status](https://drone.stephensampson.dev/api/badges/stphnsmpsn/connected-home/status.svg?ref=refs/heads/devel)](https://drone.stephensampson.dev/stphnsmpsn/connected-home)
 
 A distributed multi-service application written in Rust and deployed to Kubernetes. Useful for collecting, aggregating, 
 and visualizing data from various sensors around the home. Disclaimer: There is little reason to be using Kubernetes 
