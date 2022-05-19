@@ -72,7 +72,7 @@ impl UserService for MyUserService {
             .unwrap();
 
         Ok(Response::new(RegisterResponse {
-            jwt: create_jwt(&hashed_user.username()).to_string(),
+            jwt: create_jwt(hashed_user.username()).to_string(),
         }))
     }
 
@@ -97,7 +97,7 @@ impl UserService for MyUserService {
         if let Some(user) = results.get(0) {
             return if user.verify_password(credentials.password) {
                 Ok(Response::new(LoginResponse {
-                    jwt: create_jwt(&user.username()).to_string(),
+                    jwt: create_jwt(user.username()).to_string(),
                 }))
             } else {
                 Err(Status::new(

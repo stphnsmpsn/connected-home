@@ -1,4 +1,3 @@
-extern crate pretty_env_logger;
 #[macro_use]
 extern crate log;
 #[macro_use]
@@ -40,7 +39,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let connection = Arc::new(Mutex::new(
         PgConnection::establish(&database_url)
-            .expect(&format!("Error connecting to {}", database_url)),
+            .unwrap_or_else(|_| panic!("Error connecting to {}", database_url)),
     ));
 
     let addr = ([0, 0, 0, 0], 8083).into();

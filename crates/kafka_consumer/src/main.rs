@@ -55,11 +55,11 @@ struct CustomContext;
 impl ClientContext for CustomContext {}
 
 impl ConsumerContext for CustomContext {
-    fn pre_rebalance(&self, rebalance: &Rebalance) {
+    fn pre_rebalance(&self, rebalance: &Rebalance<'_>) {
         println!("Pre rebalance {:?}", rebalance);
     }
 
-    fn post_rebalance(&self, rebalance: &Rebalance) {
+    fn post_rebalance(&self, rebalance: &Rebalance<'_>) {
         println!("Post rebalance {:?}", rebalance);
     }
 

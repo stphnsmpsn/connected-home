@@ -33,8 +33,8 @@ impl User {
         argon2::verify_encoded(&self.password, password.as_bytes()).unwrap_or(false)
     }
 
-    pub fn username(&self) -> &String {
-        &self.username
+    pub fn username(&self) -> &str {
+        self.username.as_str()
     }
 }
 
