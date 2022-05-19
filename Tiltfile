@@ -3,6 +3,7 @@
 ###################################################################################################
 #
 ###################################################################################################
+
 local_resource(
     'cargo-build',
     'make cargo-build',
@@ -12,19 +13,23 @@ local_resource(
 ###################################################################################################
 #
 ###################################################################################################
+
 local_resource(
     'update-helm',
     'helm repo add bitnami https://charts.bitnami.com/bitnami \
         && helm repo add hashicorp https://helm.releases.hashicorp.com \
+#        && helm repo add redpanda https://charts.vectorized.io \
+#        && helm repo add jetstack https://charts.jetstack.io \
         && for d in helm/*; do [[ -f "$d"/Chart.yaml ]] && helm dependency update $d; done',
-    auto_init=False,
-    trigger_mode=TRIGGER_MODE_MANUAL,
+    #auto_init=False,
+    #trigger_mode=TRIGGER_MODE_MANUAL,
     labels=['Build']
 )
 
 ###################################################################################################
 #                                       API GATEWAY
 ###################################################################################################
+
 local_resource(
     'pack-api-gateway',
     'eval $(minikube docker-env) \
@@ -50,6 +55,7 @@ k8s_resource(
 ###################################################################################################
 #                                       User Service
 ###################################################################################################
+
 local_resource(
     'pack-user-service',
     'eval $(minikube docker-env) \
@@ -72,6 +78,7 @@ k8s_resource(
 ###################################################################################################
 #                                       Consumer
 ###################################################################################################
+
 local_resource(
     'pack-consumer',
     'eval $(minikube docker-env) \
@@ -94,6 +101,7 @@ k8s_resource(
 ###################################################################################################
 #                                       Producer
 ###################################################################################################
+
 local_resource(
     'pack-producer',
     'eval $(minikube docker-env) \
@@ -113,10 +121,10 @@ k8s_resource(
     labels=['Core_Services']
 )
 
-
 ###################################################################################################
 #                                       PostgreSQL
 ###################################################################################################
+
 k8s_yaml(helm(
     './helm/postgresql',
     name='postgresql',
@@ -138,6 +146,7 @@ k8s_resource(
 ###################################################################################################
 #                                       RaabitMQ
 ###################################################################################################
+
 k8s_yaml(helm(
     './helm/rabbitmq',
     name='rabbitmq',
@@ -158,8 +167,31 @@ k8s_resource(
 )
 
 ###################################################################################################
+#                                       Vault
+###################################################################################################
+
+k8s_yaml(helm(
+    './helm/vault',
+    name='vault',
+    values=[
+        'helm/vault/values.yaml'
+    ]
+))
+k8s_resource(
+    workload='vault',
+    resource_deps=[
+        'update-helm',
+    ],
+    port_forwards=[
+      port_forward(8200, 8200, name='Vault Port'),
+    ],
+    labels=['Vault']
+)
+
+###################################################################################################
 #                                       Frontend
 ###################################################################################################
+
 local_resource(
     'build-frontend',
     'rm -rf frontend/build \
@@ -186,6 +218,55 @@ k8s_resource(
     ],
     labels=['Frontend']
 )
+
+###################################################################################################
+#                                       Swagger
+###################################################################################################
+
+local_resource(
+    'update-swagger-doc',
+    # This is hacky... try to do something better
+    'if [ ! -z "$(kubectl get pods | grep swagger)" ]; then kubectl delete configmap vol-cfg-swaggerdoc && kubectl create configmap vol-cfg-swaggerdoc --from-file=helm/swagger/spec/swagger.yaml && kubectl delete pod $(kubectl get pods | grep swagger | cut -d " " -f 1); fi',
+    deps=[
+        './helm/swagger/spec/swagger.yaml',
+        './crates/api-gateway/doc/swagger.yaml'
+    ],
+    labels=['Docs'],
+)
+
+k8s_yaml(helm(
+    './helm/swagger',
+    name='swagger',
+    values=[
+        'helm/swagger/values.yaml'
+    ]
+))
+k8s_resource(
+    workload='swagger',
+    port_forwards=[
+        port_forward(8081, 8080, name='Swagger'),
+    ],
+    resource_deps=[
+        'update-swagger-doc',
+    ],
+    labels=['Docs']
+)
+
+###################################################################################################
+#                                       Redpanda
+###################################################################################################
+
+#k8s_yaml(helm(
+#    './helm/redpanda',
+#    name='redpanda',
+#    values=[
+#        'helm/redpanda/values.yaml'
+#    ]
+#))
+#k8s_resource(
+#    workload='redpanda-redpanda-operator',
+#    labels=['Redpanda']
+#)
 
 ###################################################################################################
 #                                            END

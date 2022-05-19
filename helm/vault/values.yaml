@@ -1,6 +1,6 @@
 replicaCount: 1
 
-vault:
+#vault:
 
 serviceAccount:
   create: true

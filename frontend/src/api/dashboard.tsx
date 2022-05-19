@@ -2,7 +2,7 @@ import axios from "axios";
 
 export function login(token: string) {
 
-    const address = "http://localhost:8082/dashboard"
+    const address = `${process.env.REACT_APP_BACKEND_URL}/dashboard`;
 
     return axios.create({
         timeout: 45000,

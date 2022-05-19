@@ -2,7 +2,7 @@ import axios from "axios";
 
 export function getCountries(token: string) {
 
-    const address = "http://localhost:8082/api/countries"
+    const address = `${process.env.REACT_APP_BACKEND_URL}/api/profile`;
 
     return axios.create({
         timeout: 45000,
@@ -12,7 +12,7 @@ export function getCountries(token: string) {
         },
         responseType: "json"
     }).get(address, {headers: {
-        'Authorization': token
+        'Authorization': 'Bearer ' + token
         }}).then(
         ({ data, status }) => {
             if (status !== 200) {

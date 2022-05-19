@@ -2,7 +2,7 @@ import axios from "axios";
 
 export function login(username: string | undefined, password: string | undefined) {
 
-    const address = "http://localhost:8082/api/login"
+    const address = `${process.env.REACT_APP_BACKEND_URL}/api/login`;
     let credentials = {
         username,
         password

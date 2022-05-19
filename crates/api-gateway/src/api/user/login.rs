@@ -31,7 +31,7 @@ pub async fn login(new_user: UserRequest) -> Response<Body> {
     match response {
         Ok(success_response) => {
             let login_response = success_response.into_inner();
-            make_response(StatusCode::CREATED, Some(login_response.jwt))
+            make_response(StatusCode::OK, Some(login_response.jwt))
         }
         Err(err_response) => make_response(
             StatusCode::BAD_REQUEST,

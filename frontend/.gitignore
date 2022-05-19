@@ -14,7 +14,7 @@
 # misc
 .DS_Store
 .env.local
-.env.development.local
+.env
 .env.test.local
 .env.production.local
 
@@ -37,7 +37,7 @@ yarn-error.log*
 # misc
 .DS_Store
 .env.local
-.env.development.local
+.env
 .env.test.local
 .env.production.local
 

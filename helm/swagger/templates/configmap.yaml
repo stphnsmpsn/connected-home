@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vol-cfg-swaggerdoc
+  annotations:
+    checksum/config: {{ .Files.Get "spec/swagger.yaml"  | indent 4 | sha256sum }}
+data:
+  swagger.yaml: |-
+{{ .Files.Get "spec/swagger.yaml" | indent 4 }}

@@ -1,0 +1,7 @@
+apiVersion: v2
+name: swagger
+description: Our Swagger Documentation
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+

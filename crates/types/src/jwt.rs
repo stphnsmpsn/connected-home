@@ -14,14 +14,12 @@ pub enum JwtError {
 }
 
 impl From<jwt::Error> for JwtError {
-    fn from(error: Error) -> Self {
-        match error {
-            _ => JwtError::INVALID,
-        }
+    fn from(_: Error) -> Self {
+        JwtError::INVALID
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Default, Debug, Deserialize, Serialize)]
 pub struct Jwt {
     pub token: String,
 }
@@ -32,22 +30,15 @@ impl From<String> for Jwt {
     }
 }
 
-impl Default for Jwt {
-    fn default() -> Self {
-        Self {
-            token: String::default(),
-        }
-    }
-}
-
 impl Display for Jwt {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "{}",
-            serde_json::to_string(self)
-                .map_err(|e| { warn!("Failed to serialize JWT with error: {}", e) })
-                .unwrap()
+            serde_json::to_string(self).map_err(|e| {
+                error!("Failed to serialize JWT with error: {}", e);
+                std::fmt::Error
+            })?
         )
     }
 }
@@ -57,8 +48,14 @@ impl Jwt {
         // todo: manage secrets
         let key: Hmac<Sha256> = Hmac::new_from_slice(key.as_bytes()).unwrap();
 
-        let token: Token<Header, BTreeMap<String, String>, _> =
-            VerifyWithKey::verify_with_key(self.token.as_str(), &key)?;
+        let token: Token<Header, BTreeMap<String, String>, _> = VerifyWithKey::verify_with_key(
+            match self.token.find("Bearer ") {
+                Some(0) => &self.token[7..],
+                _ => &self.token,
+            },
+            &key,
+        )?;
+
         let expiry = token.claims().get("expiry");
         return match expiry {
             Some(expiry) => {

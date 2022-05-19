@@ -4,4 +4,3 @@ extern crate pretty_env_logger;
 extern crate log;
 
 pub mod jwt;
-//pub mod user;

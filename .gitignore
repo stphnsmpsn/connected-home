@@ -13,3 +13,4 @@ Cargo.lock
 .idea
 tilt_modules/
 helm/**/charts/
+.python-version
