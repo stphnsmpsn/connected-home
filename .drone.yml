@@ -13,7 +13,8 @@ steps:
   image: rustbuilder
   pull: never
   commands:
-    - cargo clippy --all --all-targets --all-features -- -Dwarnings -Drust-2018-idioms -Ddeprecated
+    - cargo clippy --all --all-targets --all-features -- -Drust-2018-idioms -Ddeprecated
+    #- cargo clippy --all --all-targets --all-features -- -Dwarnings -Drust-2018-idioms -Ddeprecated
 
 - name: Build
   image: rustbuilder
