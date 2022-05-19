@@ -56,7 +56,7 @@ impl UserService for MyUserService {
             .load::<User>(db.deref())
             .expect("Error querying user");
 
-        for _user in results {
+        if !results.is_empty() {
             return Err(Status::new(
                 Code::InvalidArgument,
                 "A user with that name already exists.",
@@ -94,7 +94,7 @@ impl UserService for MyUserService {
             .load::<User>(db.deref())
             .expect("Error querying user");
 
-        for user in results {
+        if let Some(user) = results.get(0) {
             return if user.verify_password(credentials.password) {
                 Ok(Response::new(LoginResponse {
                     jwt: create_jwt(&user.username()).to_string(),

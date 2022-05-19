@@ -14,8 +14,8 @@ async fn main() {
     let delivery_status = producer
         .send(
             FutureRecord::to("my_topic")
-                .payload(&format!("Hello, World"))
-                .key(&format!("KEY0"))
+                .payload("Hello, World".to_string().as_str())
+                .key("KEY0".to_string().as_str())
                 .headers(OwnedHeaders::new().add("header_key", "header_value")),
             Duration::from_secs(2),
         )

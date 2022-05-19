@@ -6,15 +6,13 @@ steps:
 - name: Format
   image: rustbuilder
   pull: never
-  failure: ignore
   commands:
     - cargo fmt -- --check
  
 - name: Clippy 
   image: rustbuilder
   pull: never
-  failure: ignore 
-  commands: 
+  commands:
     - cargo clippy --all --all-targets --all-features -- -Dwarnings -Drust-2018-idioms -Ddeprecated
 
 - name: Build

@@ -5,7 +5,7 @@ use warp::{http::StatusCode, Filter};
 pub async fn ready_handler(ready: Arc<Mutex<bool>>) -> Result<impl warp::Reply, warp::Rejection> {
     let ready = ready.lock().unwrap();
 
-    if *ready == true {
+    if *ready {
         Ok(Response::builder()
             .status(StatusCode::OK)
             .header("X-Custom-Foo", "Bar")
@@ -23,7 +23,7 @@ pub async fn ready_handler(ready: Arc<Mutex<bool>>) -> Result<impl warp::Reply, 
 async fn healthy_handler(healthy: Arc<Mutex<bool>>) -> Result<impl warp::Reply, warp::Rejection> {
     let healthy = healthy.lock().unwrap();
 
-    if *healthy == true {
+    if *healthy {
         Ok(Response::builder()
             .status(StatusCode::OK)
             .header("X-Custom-Foo", "Bar")
