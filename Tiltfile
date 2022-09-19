@@ -1,13 +1,27 @@
 # Tiltfile
+update_settings(max_parallel_updates=8)
 
 ###################################################################################################
 #
 ###################################################################################################
 
+#local_resource(
+#    'cargo-build',
+#    'make cargo-build',
+#    labels=['Build']
+#)
+
 local_resource(
-    'cargo-build',
-    'make cargo-build',
+    'make-builder',
+    'docker build -f dockerfiles/Build . -t rustbuilder',
     labels=['Build']
+)
+
+local_resource(
+    'docker-build',
+    'docker run -u $(id -u ${USER}):$(id -g ${USER}) --mount=target=/app,type=bind,source=$PWD rustbuilder',
+    labels=['Build'],
+    allow_parallel = True
 )
 
 ###################################################################################################
@@ -23,6 +37,7 @@ local_resource(
         && for d in helm/*; do [[ -f "$d"/Chart.yaml ]] && helm dependency update $d; done',
     #auto_init=False,
     #trigger_mode=TRIGGER_MODE_MANUAL,
+    allow_parallel = True,
     labels=['Build']
 )
 
@@ -32,12 +47,14 @@ local_resource(
 
 local_resource(
     'pack-api-gateway',
-    'eval $(minikube docker-env) \
-        && docker build -t api-gateway --build-arg binary_location=target/release/api-gateway --build-arg binary_name=api-gateway .',
+    'docker build -t api-gateway --build-arg binary_location=target/docker/debug/api-gateway --build-arg binary_name=api-gateway . \
+        && minikube image load api-gateway',
     resource_deps=[
-       'cargo-build'
+        'docker-build'
     ],
-    labels=['Build']
+    deps=['target/docker/debug/api-gateway'],
+    labels=['Build'],
+    allow_parallel = True
 )
 k8s_yaml(helm('./helm/api-gateway'))
 k8s_resource(
@@ -58,12 +75,14 @@ k8s_resource(
 
 local_resource(
     'pack-user-service',
-    'eval $(minikube docker-env) \
-        && docker build -t user-service --build-arg binary_location=target/release/user-service --build-arg binary_name=user-service .',
+    'docker build -t user-service --build-arg binary_location=target/docker/debug/user-service --build-arg binary_name=user-service . \
+        && minikube image load user-service',
     resource_deps=[
-       'cargo-build'
+        'docker-build'
     ],
-    labels=['Build']
+    deps=['target/docker/debug/user-service'],
+    labels=['Build'],
+    allow_parallel = True
 )
 k8s_yaml(helm('./helm/user-service'))
 k8s_resource(
@@ -81,12 +100,14 @@ k8s_resource(
 
 local_resource(
     'pack-consumer',
-    'eval $(minikube docker-env) \
-            && docker build -t consumer --build-arg binary_location=target/release/consumer --build-arg binary_name=consumer .',
+    'docker build -t consumer --build-arg binary_location=target/docker/debug/consumer --build-arg binary_name=consumer . \
+        && minikube image load consumer',
     resource_deps=[
-       'cargo-build'
+        'docker-build'
     ],
-    labels=['Build']
+    deps=['target/docker/debug/consumer'],
+    labels=['Build'],
+    allow_parallel = True
 )
 k8s_yaml(helm('./helm/consumer'))
 k8s_resource(
@@ -94,6 +115,7 @@ k8s_resource(
     resource_deps=[
         'pack-consumer',
         'update-helm',
+        'rabbitmq',
     ],
     labels=['Core_Services']
 )
@@ -104,12 +126,15 @@ k8s_resource(
 
 local_resource(
     'pack-producer',
-    'eval $(minikube docker-env) \
-            && docker build -t producer --build-arg binary_location=target/release/producer --build-arg binary_name=producer .',
+    'docker build -t producer --build-arg binary_location=target/docker/debug/producer --build-arg binary_name=producer . \
+        && minikube image load producer',
     resource_deps=[
-       'cargo-build'
+        'docker-build',
+        'rabbitmq'
     ],
-    labels=['Build']
+    deps=['target/docker/debug/producer'],
+    labels=['Build'],
+    allow_parallel = True
 )
 k8s_yaml(helm('./helm/producer'))
 k8s_resource(
@@ -117,6 +142,7 @@ k8s_resource(
     resource_deps=[
         'pack-producer',
         'update-helm',
+        'rabbitmq',
     ],
     labels=['Core_Services']
 )
@@ -170,23 +196,23 @@ k8s_resource(
 #                                       Vault
 ###################################################################################################
 
-k8s_yaml(helm(
-    './helm/vault',
-    name='vault',
-    values=[
-        'helm/vault/values.yaml'
-    ]
-))
-k8s_resource(
-    workload='vault',
-    resource_deps=[
-        'update-helm',
-    ],
-    port_forwards=[
-      port_forward(8200, 8200, name='Vault Port'),
-    ],
-    labels=['Vault']
-)
+#k8s_yaml(helm(
+#    './helm/vault',
+#    name='vault',
+#    values=[
+#        'helm/vault/values.yaml'
+#    ]
+#))
+#k8s_resource(
+#    workload='vault',
+#    resource_deps=[
+#        'update-helm',
+#    ],
+#    port_forwards=[
+#      port_forward(8200, 8200, name='Vault Port'),
+#    ],
+#    labels=['Vault']
+#)
 
 ###################################################################################################
 #                                       Frontend
@@ -199,7 +225,8 @@ local_resource(
      	&& npm --prefix frontend run build \
         && eval $(minikube docker-env) \
         && docker build -f frontend/Dockerfile -t frontend:latest ./frontend',
-    labels=['Build']
+    labels=['Build'],
+    allow_parallel = True
 )
 k8s_yaml(helm(
     './helm/frontend',
@@ -239,7 +266,7 @@ k8s_yaml(helm(
     name='swagger',
     values=[
         'helm/swagger/values.yaml'
-    ]
+    ],
 ))
 k8s_resource(
     workload='swagger',
@@ -249,7 +276,7 @@ k8s_resource(
     resource_deps=[
         'update-swagger-doc',
     ],
-    labels=['Docs']
+    labels=['Docs'],
 )
 
 ###################################################################################################

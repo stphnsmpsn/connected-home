@@ -3,8 +3,14 @@
 # ----------------------------------------
 #  Build all crates in release mode
 # ----------------------------------------
-cargo-build:
+release:
 	cargo build --release
+
+# ----------------------------------------
+#  Build all crates in release mode
+# ----------------------------------------
+debug:
+	cargo build
 
 # ----------------------------------------
 #  # Set Git Config for Git Hooks
