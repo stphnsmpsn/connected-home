@@ -4,11 +4,14 @@ use crate::api::user::UserRequest;
 use grpc::user::user_service_client::UserServiceClient;
 use grpc::user::LoginRequest;
 use grpc::user::UserCredentials;
-
 use hyper::Body;
+use tracing::instrument;
 use warp::http::{Response, StatusCode};
 
-pub async fn login(new_user: UserRequest) -> Response<Body> {
+#[instrument]
+pub async fn login(user: UserRequest) -> Response<Body> {
+    tracing::info!("attempting to login");
+
     // creating a channel ie connection to server
     let channel = tonic::transport::Channel::from_static("http://user-service:8083")
         .connect()
@@ -21,8 +24,8 @@ pub async fn login(new_user: UserRequest) -> Response<Body> {
     // creating a new Request
     let request = tonic::Request::new(LoginRequest {
         credentials: Some(UserCredentials {
-            username: new_user.username,
-            password: new_user.password,
+            username: user.username,
+            password: user.password,
         }),
     });
 
@@ -31,11 +34,15 @@ pub async fn login(new_user: UserRequest) -> Response<Body> {
     match response {
         Ok(success_response) => {
             let login_response = success_response.into_inner();
+            tracing::info!("successfully logged in");
             make_response(StatusCode::OK, Some(login_response.jwt))
         }
-        Err(err_response) => make_response(
-            StatusCode::BAD_REQUEST,
-            Some(err_response.message().to_string()),
-        ),
+        Err(err_response) => {
+            tracing::info!("failed to log in");
+            make_response(
+                StatusCode::BAD_REQUEST,
+                Some(err_response.message().to_string()),
+            )
+        }
     }
 }

@@ -60,6 +60,7 @@ k8s_yaml(helm('./helm/api-gateway'))
 k8s_resource(
     workload='api-gateway',
     resource_deps=[
+        'docker-build',
         'pack-api-gateway',
         'update-helm',
     ],
@@ -90,6 +91,7 @@ k8s_resource(
     resource_deps=[
         'pack-user-service',
         'update-helm',
+        'make-migrate-db',
     ],
     labels=['Core_Services']
 )
@@ -166,6 +168,13 @@ k8s_resource(
     port_forwards=[
       port_forward(5432, 5432, name='PostgreSQL'),
     ],
+    labels=['PostgreSQL']
+)
+
+local_resource(
+    'make-migrate-db',
+    'cd crates/user-service \
+        && DATABASE_URL=postgres://postgres:password@localhost/postgres diesel migration run',
     labels=['PostgreSQL']
 )
 
