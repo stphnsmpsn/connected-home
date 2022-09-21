@@ -7,7 +7,7 @@ replicaCount: 1
 image:
   #name: api-gateway
   #repository: 172.17.0.1:5000/api-gateway
-  repository: user-service
+  repository: connectedhome/user-service
   #pullPolicy: IfNotPresent
   pullPolicy: Never
   # Overrides the image tag whose default is the chart appVersion.
@@ -87,6 +87,8 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+command: ["/bin/user-service"]
 
 # todo: Get rid of these and handle env vars / secrets better
 RUST_LOG: info

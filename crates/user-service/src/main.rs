@@ -1,6 +1,4 @@
 #[macro_use]
-extern crate log;
-#[macro_use]
 extern crate diesel;
 
 use common::{make_healthy_filter, make_ready_filter};
@@ -10,6 +8,8 @@ use std::env;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use tonic::transport::Server;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::prelude::*;
 use user::handlers::MyUserService;
 use warp::Filter;
 
@@ -19,8 +19,25 @@ mod user;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    pretty_env_logger::init();
-    info!("User Service Starting Up...");
+    let opentelemetry = tracing_opentelemetry::layer()
+        .with_tracer(
+            opentelemetry_jaeger::new_agent_pipeline()
+                .with_service_name("user-service")
+                .with_endpoint("jaeger:6831")
+                .install_simple()
+                .unwrap(),
+        )
+        .with_filter(tracing_subscriber::filter::LevelFilter::INFO);
+
+    let stdout = tracing_subscriber::fmt::layer()
+        .pretty()
+        .with_filter(tracing_subscriber::filter::LevelFilter::INFO);
+
+    tracing_subscriber::registry()
+        .with(opentelemetry)
+        .with(stdout)
+        .try_init()
+        .unwrap();
 
     let ready_flag = Arc::new(Mutex::new(false));
 
@@ -35,7 +52,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // todo: manage config & secrets
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    debug!("Database URL: {}", database_url);
+    tracing::debug!("Database URL: {}", database_url);
 
     let connection = Arc::new(Mutex::new(
         PgConnection::establish(&database_url)

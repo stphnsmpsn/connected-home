@@ -7,7 +7,7 @@ replicaCount: 1
 image:
   #name: consumer
   #repository: 172.17.0.1:5000/consumer
-  repository: consumer
+  repository: connectedhome/consumer
   #pullPolicy: IfNotPresent
   pullPolicy: Never
   # Overrides the image tag whose default is the chart appVersion.
@@ -84,6 +84,8 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+command: ["/bin/consumer"]
 
 RUST_LOG: info
 

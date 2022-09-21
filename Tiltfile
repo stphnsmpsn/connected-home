@@ -5,28 +5,18 @@ update_settings(max_parallel_updates=8)
 #
 ###################################################################################################
 
-#local_resource(
-#    'cargo-build',
-#    'make cargo-build',
-#    labels=['Build']
-#)
-
 local_resource(
-    'make-builder',
-    'docker build -f dockerfiles/Build . -t rustbuilder',
-    labels=['Build']
-)
-
-local_resource(
-    'docker-build',
-    'docker run -u $(id -u ${USER}):$(id -g ${USER}) --mount=target=/app,type=bind,source=$PWD rustbuilder',
+    'docker-build-and-pack',
+    'docker run -u $(id -u ${USER}):$(id -g ${USER}) --mount=target=/app,type=bind,source=$PWD rustbuilder \
+        && eval $(minikube docker-env) \
+        && docker build -t core-service . --no-cache \
+        && minikube image tag core-service connectedhome/api-gateway:latest \
+        && minikube image tag core-service connectedhome/user-service:latest \
+        && minikube image tag core-service connectedhome/consumer:latest \
+        && minikube image tag core-service connectedhome/producer:latest',
     labels=['Build'],
     allow_parallel = True
 )
-
-###################################################################################################
-#
-###################################################################################################
 
 local_resource(
     'update-helm',
@@ -45,24 +35,13 @@ local_resource(
 #                                       API GATEWAY
 ###################################################################################################
 
-local_resource(
-    'pack-api-gateway',
-    'docker build -t api-gateway --build-arg binary_location=target/docker/debug/api-gateway --build-arg binary_name=api-gateway . \
-        && minikube image load api-gateway',
-    resource_deps=[
-        'docker-build'
-    ],
-    deps=['target/docker/debug/api-gateway'],
-    labels=['Build'],
-    allow_parallel = True
-)
 k8s_yaml(helm('./helm/api-gateway'))
 k8s_resource(
     workload='api-gateway',
     resource_deps=[
-        'docker-build',
-        'pack-api-gateway',
+        'docker-build-and-pack',
         'update-helm',
+        'jaeger',
     ],
     port_forwards=[
         port_forward(8082, 8082, name='API Gateway'),
@@ -74,24 +53,13 @@ k8s_resource(
 #                                       User Service
 ###################################################################################################
 
-local_resource(
-    'pack-user-service',
-    'docker build -t user-service --build-arg binary_location=target/docker/debug/user-service --build-arg binary_name=user-service . \
-        && minikube image load user-service',
-    resource_deps=[
-        'docker-build'
-    ],
-    deps=['target/docker/debug/user-service'],
-    labels=['Build'],
-    allow_parallel = True
-)
 k8s_yaml(helm('./helm/user-service'))
 k8s_resource(
     workload='user-service',
     resource_deps=[
-        'pack-user-service',
+        'docker-build-and-pack',
         'update-helm',
-        'make-migrate-db',
+        'jaeger',
     ],
     labels=['Core_Services']
 )
@@ -100,24 +68,14 @@ k8s_resource(
 #                                       Consumer
 ###################################################################################################
 
-local_resource(
-    'pack-consumer',
-    'docker build -t consumer --build-arg binary_location=target/docker/debug/consumer --build-arg binary_name=consumer . \
-        && minikube image load consumer',
-    resource_deps=[
-        'docker-build'
-    ],
-    deps=['target/docker/debug/consumer'],
-    labels=['Build'],
-    allow_parallel = True
-)
 k8s_yaml(helm('./helm/consumer'))
 k8s_resource(
     workload='consumer',
     resource_deps=[
-        'pack-consumer',
+        'docker-build-and-pack',
         'update-helm',
-        'rabbitmq',
+        'jaeger',
+        'rabbitmq'
     ],
     labels=['Core_Services']
 )
@@ -126,23 +84,11 @@ k8s_resource(
 #                                       Producer
 ###################################################################################################
 
-local_resource(
-    'pack-producer',
-    'docker build -t producer --build-arg binary_location=target/docker/debug/producer --build-arg binary_name=producer . \
-        && minikube image load producer',
-    resource_deps=[
-        'docker-build',
-        'rabbitmq'
-    ],
-    deps=['target/docker/debug/producer'],
-    labels=['Build'],
-    allow_parallel = True
-)
 k8s_yaml(helm('./helm/producer'))
 k8s_resource(
     workload='producer',
     resource_deps=[
-        'pack-producer',
+        'docker-build-and-pack',
         'update-helm',
         'rabbitmq',
     ],
@@ -303,6 +249,26 @@ k8s_resource(
 #    workload='redpanda-redpanda-operator',
 #    labels=['Redpanda']
 #)
+
+
+###################################################################################################
+#                                       Jaeger
+###################################################################################################
+
+k8s_yaml(helm(
+    './helm/jaeger',
+    name='jaeger',
+    values=[
+        'helm/jaeger/values.yaml'
+    ]
+))
+k8s_resource(
+    workload='jaeger',
+    port_forwards=[
+        port_forward(16686, 16686, name='Dashboard'),
+    ],
+    labels=['Observability']
+)
 
 ###################################################################################################
 #                                            END

@@ -1,13 +1,11 @@
 use crate::api::{api, ServiceContext};
 use serde::{Deserialize, Serialize};
 use std::convert::Infallible;
-use std::net::SocketAddr;
 use std::sync::Arc;
-use warp::http::{HeaderMap, HeaderValue, StatusCode};
-use warp::{Filter, Rejection, Reply};
-
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::prelude::*;
+use warp::http::{HeaderMap, HeaderValue, StatusCode};
+use warp::{Filter, Rejection, Reply};
 
 mod api;
 
@@ -22,7 +20,7 @@ async fn main() {
         .with_tracer(
             opentelemetry_jaeger::new_agent_pipeline()
                 .with_service_name("api-gateway")
-                .with_endpoint(SocketAddr::from(([127, 0, 0, 1], 6831)))
+                .with_endpoint("jaeger:6831")
                 .install_simple()
                 .unwrap(),
         )
@@ -37,14 +35,6 @@ async fn main() {
         .with(stdout)
         .try_init()
         .unwrap();
-
-    {
-        let root = tracing::span!(tracing::Level::INFO, "app_start", work_units = 2);
-        let _enter = root.enter();
-
-        tracing::warn!("About to exit!");
-        tracing::trace!("status: {}", true);
-    } // Once this scope is closed, all spans inside are closed as well
 
     let service_context = Arc::new(ServiceContext::new());
 
@@ -66,7 +56,14 @@ async fn main() {
         .and(warp::header::optional::<String>("authorization"))
         .and(with_context(service_context))
         .and_then(api)
-        .with(warp::reply::with::headers(headers.clone()));
+        .with(warp::reply::with::headers(headers.clone()))
+        .with(warp::trace(|info| {
+            tracing::info_span!(
+                "request",
+                method = %info.method(),
+                path = %info.path(),
+            )
+        }));
 
     let ready = warp::path("ready")
         .and(warp::get())
@@ -90,7 +87,7 @@ async fn main() {
 
     // we listen on all interfaces because we will be inside of a container
     // and we do not know what IP we will be assigned
-    warp::serve(routes).run(([0, 0, 0, 0], 9082)).await;
+    warp::serve(routes).run(([0, 0, 0, 0], 8082)).await;
 }
 
 // todo: beef up this handler

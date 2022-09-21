@@ -45,3 +45,11 @@ technologies to use in the project.
 * [docker](https://www.docker.com/)
 * [minikube](https://minikube.sigs.k8s.io/docs/start/)
 * [tilt](https://tilt.dev/)
+
+
+## Getting Started
+
+1. `git clone`
+2. `cd connected-home`
+3. `make builder`
+4. `tilt up`

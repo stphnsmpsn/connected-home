@@ -9,17 +9,28 @@ use grpc::user::{
 };
 use hmac::{Hmac, NewMac};
 use jwt::SignWithKey;
+use opentelemetry::propagation::TextMapPropagator;
+use opentelemetry::sdk::propagation::TraceContextPropagator;
 use schema::users::dsl::*;
 use sha2::Sha256;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
+use std::fmt::{Debug, Formatter};
 use std::ops::Deref;
 use std::sync::{Arc, Mutex};
 use tonic::{Code, Request, Response, Status};
+use tracing::instrument;
+use tracing_opentelemetry::OpenTelemetrySpanExt;
 use types::jwt::Jwt;
 
 // defining a struct for our service
 pub struct MyUserService {
     db: Arc<Mutex<PgConnection>>,
+}
+
+impl Debug for MyUserService {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "this is a test")
+    }
 }
 
 impl MyUserService {
@@ -30,11 +41,25 @@ impl MyUserService {
 
 #[tonic::async_trait]
 impl UserService for MyUserService {
+    #[instrument]
     async fn register(
         &self,
         request: Request<RegisterRequest>,
     ) -> Result<Response<RegisterResponse>, Status> {
-        info!("Got Register Request");
+        tracing::info!("Got Register Request");
+
+        let x = request.metadata();
+        let y = x.clone().into_headers();
+
+        let mut fields: HashMap<_, _> = HashMap::new();
+        for (k, v) in y {
+            fields.insert(k.unwrap().to_string(), v.to_str().unwrap().to_string());
+        }
+
+        let propagator = TraceContextPropagator::new();
+        let context = propagator.extract(&fields);
+        let span = tracing::Span::current();
+        span.set_parent(context);
 
         let new_user = request
             .into_inner()
@@ -42,9 +67,10 @@ impl UserService for MyUserService {
             //.ok_or_else(|| Err(Status::new(Code::InvalidArgument, "")))?;
             .unwrap();
 
-        println!(
+        tracing::info!(
             "Registering user: {} with password: {}",
-            new_user.username, new_user.password
+            new_user.username,
+            new_user.password
         );
 
         // todo: remove unwrap
@@ -76,11 +102,12 @@ impl UserService for MyUserService {
         }))
     }
 
+    #[instrument]
     async fn login(
         &self,
         request: Request<LoginRequest>,
     ) -> Result<Response<LoginResponse>, Status> {
-        info!("Got Login Request");
+        tracing::info!("Got Login Request");
 
         // todo: remove unwrap
         let credentials = request.into_inner().credentials.unwrap();
@@ -113,11 +140,12 @@ impl UserService for MyUserService {
         ))
     }
 
+    #[instrument]
     async fn profile(
         &self,
         request: Request<ProfileRequest>,
     ) -> Result<Response<ProfileResponse>, Status> {
-        info!("Got Profile Request");
+        tracing::info!("Got Profile Request");
 
         match request.metadata().get("authorization") {
             Some(token) => {
@@ -136,7 +164,7 @@ impl UserService for MyUserService {
                         }),
                     })),
                     Err(e) => {
-                        error!("{:?}", e);
+                        tracing::error!("{:?}", e);
                         Err(Status::unauthenticated("No valid auth token"))
                     }
                 }
@@ -146,6 +174,7 @@ impl UserService for MyUserService {
     }
 }
 
+#[instrument]
 pub fn create_jwt(user: &str) -> Jwt {
     // todo: manage secrets
     let key: Hmac<Sha256> = Hmac::new_from_slice(b"SUPERSECRETKEY").unwrap();
