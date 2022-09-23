@@ -9,11 +9,9 @@ use grpc::user::{
 };
 use hmac::{Hmac, NewMac};
 use jwt::SignWithKey;
-use opentelemetry::propagation::TextMapPropagator;
-use opentelemetry::sdk::propagation::TraceContextPropagator;
 use schema::users::dsl::*;
 use sha2::Sha256;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::fmt::{Debug, Formatter};
 use std::ops::Deref;
 use std::sync::{Arc, Mutex};
@@ -46,32 +44,16 @@ impl UserService for MyUserService {
         &self,
         request: Request<RegisterRequest>,
     ) -> Result<Response<RegisterResponse>, Status> {
-        tracing::info!("Got Register Request");
-
-        let x = request.metadata();
-        let y = x.clone().into_headers();
-
-        let mut fields: HashMap<_, _> = HashMap::new();
-        for (k, v) in y {
-            fields.insert(k.unwrap().to_string(), v.to_str().unwrap().to_string());
+        if let Some(request_context) = request.extensions().get::<grpc::RequestContext>() {
+            let span = tracing::Span::current();
+            span.set_parent(request_context.to_owned().tracing_context);
         }
-
-        let propagator = TraceContextPropagator::new();
-        let context = propagator.extract(&fields);
-        let span = tracing::Span::current();
-        span.set_parent(context);
 
         let new_user = request
             .into_inner()
             .credentials
             //.ok_or_else(|| Err(Status::new(Code::InvalidArgument, "")))?;
             .unwrap();
-
-        tracing::info!(
-            "Registering user: {} with password: {}",
-            new_user.username,
-            new_user.password
-        );
 
         // todo: remove unwrap
         let db = self.db.lock().unwrap();
@@ -107,7 +89,10 @@ impl UserService for MyUserService {
         &self,
         request: Request<LoginRequest>,
     ) -> Result<Response<LoginResponse>, Status> {
-        tracing::info!("Got Login Request");
+        if let Some(request_context) = request.extensions().get::<grpc::RequestContext>() {
+            let span = tracing::Span::current();
+            span.set_parent(request_context.to_owned().tracing_context);
+        }
 
         // todo: remove unwrap
         let credentials = request.into_inner().credentials.unwrap();
@@ -145,10 +130,14 @@ impl UserService for MyUserService {
         &self,
         request: Request<ProfileRequest>,
     ) -> Result<Response<ProfileResponse>, Status> {
-        tracing::info!("Got Profile Request");
+        if let Some(request_context) = request.extensions().get::<grpc::RequestContext>() {
+            let span = tracing::Span::current();
+            span.set_parent(request_context.to_owned().tracing_context);
+        }
 
         match request.metadata().get("authorization") {
             Some(token) => {
+                tracing::info!("got token: {}", token.to_str().unwrap());
                 let jwt: Jwt = serde_json::from_str(token.to_str().unwrap()).unwrap();
                 // todo: manage secret
                 let claims = jwt.verify("SUPERSECRETKEY");

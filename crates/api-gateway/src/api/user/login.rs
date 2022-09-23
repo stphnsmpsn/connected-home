@@ -4,6 +4,7 @@ use crate::api::user::UserRequest;
 use grpc::user::user_service_client::UserServiceClient;
 use grpc::user::LoginRequest;
 use grpc::user::UserCredentials;
+use grpc::SendTracingContext;
 use hyper::Body;
 use tracing::instrument;
 use warp::http::{Response, StatusCode};
@@ -19,7 +20,7 @@ pub async fn login(user: UserRequest) -> Response<Body> {
         .unwrap();
 
     // creating gRPC client from channel
-    let mut client = UserServiceClient::new(channel);
+    let mut client = UserServiceClient::with_interceptor(channel, SendTracingContext::default());
 
     // creating a new Request
     let request = tonic::Request::new(LoginRequest {

@@ -39,6 +39,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .try_init()
         .unwrap();
 
+    {
+        let root = tracing::span!(tracing::Level::INFO, "app_start", work_units = 2);
+        let _enter = root.enter();
+
+        tracing::warn!("About to exit!");
+        tracing::trace!("status: {}", true);
+    } // Once this scope is closed, all spans inside are closed as well
+
     let ready_flag = Arc::new(Mutex::new(false));
 
     let ready = make_ready_filter(String::from("ready"), ready_flag.clone());
@@ -67,7 +75,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         *r = true;
     }
 
+    let layer = tower::ServiceBuilder::new()
+        .layer(grpc::RestoreTracingContextLayer {})
+        .into_inner();
+
     Server::builder()
+        .layer(layer)
         .add_service(UserServiceServer::new(user_service))
         .serve(addr)
         .await?;

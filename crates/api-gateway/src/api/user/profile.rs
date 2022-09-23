@@ -1,10 +1,10 @@
 use crate::api::make_response;
 use grpc::user::user_service_client::UserServiceClient;
 use grpc::user::{ProfileRequest, ProfileResponse};
+use grpc::SendTracingContext;
 use hyper::Body;
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
-use tonic::{metadata::MetadataValue, Request};
 use types::jwt::Jwt;
 use warp::http::{Response, StatusCode};
 
@@ -15,13 +15,9 @@ pub async fn profile(jwt: Jwt) -> Response<Body> {
         .await
         .unwrap();
 
-    let token = MetadataValue::from_str(jwt.to_string().as_str()).unwrap();
-
     // creating gRPC client from channel
-    let mut client = UserServiceClient::with_interceptor(channel, move |mut req: Request<()>| {
-        req.metadata_mut().insert("authorization", token.clone());
-        Ok(req)
-    });
+    let mut client =
+        UserServiceClient::with_interceptor(channel, SendTracingContext::with_jwt(jwt));
 
     // creating a new Request
     let request = tonic::Request::new(ProfileRequest {});
