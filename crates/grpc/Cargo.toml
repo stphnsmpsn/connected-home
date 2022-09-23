@@ -3,13 +3,19 @@ name = "grpc"
 version = "0.1.0"
 authors = ["Steve Sampson <mail@stephensampson.dev>"]
 edition = "2021"
-
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tonic = "0.6.1"
-prost = "0.9.0"
-prost-types = "0.9.0"
+futures = "0.3.17"
+hyper = "0.14.20"
+opentelemetry = { version = "0.18.0", default-features = false, features = ["trace"] }
+prost = "0.11.0"
+prost-types = "0.11.1"
+tonic = "0.8.1"
+tower = "0.4.13"
+tracing = "0.1.35"
+tracing-opentelemetry = "0.18.0"
+types = { path = "../types" }
 
 [build-dependencies]
-tonic-build = "0.6.0"
+tonic-build = "0.8.0"

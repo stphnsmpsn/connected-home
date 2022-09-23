@@ -18,6 +18,7 @@ pub struct User {
 }
 
 impl User {
+    #[tracing::instrument]
     pub fn new(username: String, password: String) -> Self {
         let now = Utc::now().naive_utc();
         User {
@@ -29,15 +30,18 @@ impl User {
         }
     }
 
+    #[tracing::instrument]
     pub fn verify_password(&self, password: String) -> bool {
         argon2::verify_encoded(&self.password, password.as_bytes()).unwrap_or(false)
     }
 
+    #[tracing::instrument]
     pub fn username(&self) -> &str {
         self.username.as_str()
     }
 }
 
+#[tracing::instrument]
 fn hash(password: &[u8]) -> String {
     let salt = rand::thread_rng().gen::<[u8; 32]>();
     let config = Config::default();

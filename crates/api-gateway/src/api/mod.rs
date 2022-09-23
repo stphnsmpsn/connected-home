@@ -4,11 +4,22 @@ use crate::api::user::profile::profile;
 use crate::api::user::register::register;
 use hyper::Body;
 use std::convert::TryInto;
+use std::sync::Arc;
+use tracing::instrument;
 use types::jwt::Jwt;
 use warp::http::{Method, Response, StatusCode};
 
 mod countries;
 mod user;
+
+#[derive(Debug)]
+pub struct ServiceContext {}
+
+impl ServiceContext {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
 
 #[derive(Debug)]
 pub enum DeserializationError {
@@ -17,16 +28,18 @@ pub enum DeserializationError {
 
 impl warp::reject::Reject for DeserializationError {}
 
+// TODO: skip printing sensitive information like username / password in body
+//  #[instrument(skip(body))]
+#[instrument]
 pub async fn api(
     method: Method,
     path: String,
     body: hyper::body::Bytes,
     jwt: Option<String>,
+    context: Arc<ServiceContext>,
 ) -> Result<Response<Body>, warp::Rejection> {
-    info!(
-        "Got {} request for: /api/{} with token: {:?}",
-        method, path, jwt
-    );
+    tracing::info!("handling API request");
+
     let jwt = Jwt::from(jwt.unwrap_or_default());
     // todo: find a better way to filter requests, returning appropriate status codes
     Ok(match method {

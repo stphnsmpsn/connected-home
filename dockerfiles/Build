@@ -3,7 +3,8 @@ ARG DEBIAN_FRONTEND=noninteractive
 RUN apt update && apt install -y \
     iputils-ping \
     libpq-dev \
-    cmake
+    cmake \
+    protobuf-compiler
 WORKDIR /app
 RUN rustup component add rustfmt
 CMD CARGO_TARGET_DIR=target/docker cargo build

@@ -1,16 +1,16 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "consumer.fullname" . }}
+  name: {{ include "jaeger.fullname" . }}
   labels:
-    {{- include "consumer.labels" . | nindent 4 }}
+    {{- include "jaeger.labels" . | nindent 4 }}
 spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
   {{- end }}
   selector:
     matchLabels:
-      {{- include "consumer.selectorLabels" . | nindent 6 }}
+      {{- include "jaeger.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       {{- with .Values.podAnnotations }}
@@ -18,39 +18,38 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        {{- include "consumer.selectorLabels" . | nindent 8 }}
+        {{- include "jaeger.selectorLabels" . | nindent 8 }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "consumer.serviceAccountName" . }}
+      serviceAccountName: {{ include "jaeger.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
         - name: {{ .Chart.Name }}
-          command: {{ .Values.command }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          env:
-            - name: "RUST_LOG"
-              value: {{ .Values.RUST_LOG }}
           ports:
-            - name: http
-              containerPort: 8082
+            - name: thrift
+              containerPort: 6831
+              protocol: UDP
+            - name: dashboard
+              containerPort: 16686
               protocol: TCP
           livenessProbe:
             initialDelaySeconds: 5
             httpGet:
-              path: /healthy
-              port: 8082
+              path: /
+              port: 16686
           readinessProbe:
             initialDelaySeconds: 5
             httpGet:
-              path: /ready
-              port: 8082
+              path: /
+              port: 16686
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       {{- with .Values.nodeSelector }}

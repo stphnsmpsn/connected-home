@@ -7,7 +7,7 @@ replicaCount: 1
 image:
   #name: producer
   #repository: 172.17.0.1:5000/producer
-  repository: producer
+  repository: connectedhome/producer
   #pullPolicy: IfNotPresent
   pullPolicy: Never
   # Overrides the image tag whose default is the chart appVersion.
@@ -84,5 +84,7 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+command: ["/bin/producer"]
 
 RUST_LOG: info

@@ -1,5 +1,11 @@
 [workspace]
 members = [
-    "crates/*",
+    "crates/api-gateway",
+    "crates/common",
+    "crates/consumer",
+    "crates/grpc",
+    "crates/producer",
+    "crates/types",
+    "crates/user-service",
 ]
-edition = "2018"
+

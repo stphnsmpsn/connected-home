@@ -12,14 +12,23 @@ use jwt::SignWithKey;
 use schema::users::dsl::*;
 use sha2::Sha256;
 use std::collections::BTreeMap;
+use std::fmt::{Debug, Formatter};
 use std::ops::Deref;
 use std::sync::{Arc, Mutex};
 use tonic::{Code, Request, Response, Status};
+use tracing::instrument;
+use tracing_opentelemetry::OpenTelemetrySpanExt;
 use types::jwt::Jwt;
 
 // defining a struct for our service
 pub struct MyUserService {
     db: Arc<Mutex<PgConnection>>,
+}
+
+impl Debug for MyUserService {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "this is a test")
+    }
 }
 
 impl MyUserService {
@@ -30,22 +39,21 @@ impl MyUserService {
 
 #[tonic::async_trait]
 impl UserService for MyUserService {
+    #[instrument]
     async fn register(
         &self,
         request: Request<RegisterRequest>,
     ) -> Result<Response<RegisterResponse>, Status> {
-        info!("Got Register Request");
+        if let Some(request_context) = request.extensions().get::<grpc::RequestContext>() {
+            let span = tracing::Span::current();
+            span.set_parent(request_context.to_owned().tracing_context);
+        }
 
         let new_user = request
             .into_inner()
             .credentials
             //.ok_or_else(|| Err(Status::new(Code::InvalidArgument, "")))?;
             .unwrap();
-
-        println!(
-            "Registering user: {} with password: {}",
-            new_user.username, new_user.password
-        );
 
         // todo: remove unwrap
         let db = self.db.lock().unwrap();
@@ -76,11 +84,15 @@ impl UserService for MyUserService {
         }))
     }
 
+    #[instrument]
     async fn login(
         &self,
         request: Request<LoginRequest>,
     ) -> Result<Response<LoginResponse>, Status> {
-        info!("Got Login Request");
+        if let Some(request_context) = request.extensions().get::<grpc::RequestContext>() {
+            let span = tracing::Span::current();
+            span.set_parent(request_context.to_owned().tracing_context);
+        }
 
         // todo: remove unwrap
         let credentials = request.into_inner().credentials.unwrap();
@@ -113,14 +125,19 @@ impl UserService for MyUserService {
         ))
     }
 
+    #[instrument]
     async fn profile(
         &self,
         request: Request<ProfileRequest>,
     ) -> Result<Response<ProfileResponse>, Status> {
-        info!("Got Profile Request");
+        if let Some(request_context) = request.extensions().get::<grpc::RequestContext>() {
+            let span = tracing::Span::current();
+            span.set_parent(request_context.to_owned().tracing_context);
+        }
 
         match request.metadata().get("authorization") {
             Some(token) => {
+                tracing::info!("got token: {}", token.to_str().unwrap());
                 let jwt: Jwt = serde_json::from_str(token.to_str().unwrap()).unwrap();
                 // todo: manage secret
                 let claims = jwt.verify("SUPERSECRETKEY");
@@ -136,7 +153,7 @@ impl UserService for MyUserService {
                         }),
                     })),
                     Err(e) => {
-                        error!("{:?}", e);
+                        tracing::error!("{:?}", e);
                         Err(Status::unauthenticated("No valid auth token"))
                     }
                 }
@@ -146,6 +163,7 @@ impl UserService for MyUserService {
     }
 }
 
+#[instrument]
 pub fn create_jwt(user: &str) -> Jwt {
     // todo: manage secrets
     let key: Hmac<Sha256> = Hmac::new_from_slice(b"SUPERSECRETKEY").unwrap();
