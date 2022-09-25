@@ -107,6 +107,13 @@ const NavigationBar: React.FC = (props: any) => {
                             </MenuItem>
                         </NavLink>
                         }
+                        {!token &&
+                            <NavLink to="/register" style={{textDecoration: 'none'}} key="/register">
+                                <MenuItem selected={activeRoute("/register")}>
+                                    <ListItemText primary="Register"/>
+                                </MenuItem>
+                            </NavLink>
+                        }
                     </MenuList>
                 </div>
             </Drawer>

@@ -5,6 +5,7 @@ import NavigationBar from './components/NavigationBar';
 import useToken from "./UseToken";
 import React from "react";
 import Login from "./pages/Login";
+import Register from "./pages/Register";
 
 
 const App: React.FC = () => {
@@ -27,6 +28,11 @@ const App: React.FC = () => {
                 {!token &&
                     <Route exact path="/login" key="/login">
                         <Login setToken={setToken}/>
+                    </Route>
+                }
+                {!token &&
+                    <Route exact path="/register" key="/register">
+                        <Register setToken={setToken}/>
                     </Route>
                 }
             </Switch>
