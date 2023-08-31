@@ -1,0 +1,18 @@
+[alias]
+ci-check = "check --all --all-targets --all-features"
+ci-clippy = "clippy --all --all-targets --all-features -- -Dwarnings -Drust-2018-idioms"
+ci-format = "fmt --all -- --config imports_granularity=crate --check"
+
+[build]
+rustflags = ["--cfg", "tokio_unstable"]
+rustdocflags = ["--cfg", "tokio_unstable"]
+
+# In case `~/.cargo/config` has `target.<triple>.rustflags` overrides.
+[target.aarch64-apple-darwin]
+rustflags = ["--cfg", "tokio_unstable"]
+
+[target.x86_64-apple-darwin]
+rustflags = ["--cfg", "tokio_unstable"]
+
+[target.x86_64-unknown-linux-gnu]
+rustflags = ["--cfg", "tokio_unstable"]

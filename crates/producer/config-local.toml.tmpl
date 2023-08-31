@@ -1,0 +1,15 @@
+[metrics]
+prefix = "ch"
+
+[tracing]
+level = "DEBUG"
+tempo-url = "http://localhost"
+tempo-port = 4317
+service-name = "current_monitor"
+
+[mqtt]
+host = "localhost"
+port = 1883
+username = "file:./.secrets/mqtt_username"
+password = "file:./.secrets/mqtt_password"
+client-id = "current_monitor"

@@ -5,7 +5,6 @@ members = [
     "crates/consumer",
     "crates/grpc",
     "crates/producer",
-    "crates/types",
     "crates/user-service",
 ]
 

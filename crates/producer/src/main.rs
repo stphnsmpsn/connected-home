@@ -1,70 +1,67 @@
 #[macro_use]
-extern crate log;
+extern crate slog;
 
-use amiquip::{Connection, Exchange, Publish, Result};
-use common::{make_healthy_filter, make_ready_filter};
-use std::net::SocketAddr;
-use std::sync::{Arc, Mutex};
-use std::thread;
-use std::time::Duration;
-use warp::Filter;
+use crate::{config::Config, context::Context, tasks::current_monitor::monitor_current};
+use common::{
+    error::{ConnectedHomeError, ConnectedHomeResult},
+    tracing::init_tracing,
+    util::{
+        cli::{Args, Parser},
+        task::{await_signal, launch_task, wait_for_tasks, ShutdownType},
+    },
+};
+use rumqttc::AsyncClient;
+use std::sync::Arc;
+use tokio::task::JoinSet;
+
+mod config;
+mod context;
+mod metrics;
+mod tasks;
 
 #[tokio::main]
-async fn main() -> Result<(), ()> {
-    pretty_env_logger::init();
-    info!("Producer Starting Up...");
+async fn main() -> ConnectedHomeResult<()> {
+    let args: Args<Config> = Args::parse();
+    let context = Arc::new(Context::from_args(args).await?);
 
-    let ready_flag = Arc::new(Mutex::new(false));
+    init_tracing(context.config.tracing.clone());
 
-    let ready = make_ready_filter(String::from("ready"), ready_flag.clone());
-    let healthy = make_healthy_filter(String::from("healthy"), ready_flag.clone());
+    info!(
+        context.logger,
+        "Energy Monitor Started";
+        "version" => env!("CARGO_PKG_VERSION")
+    );
 
-    let routes = healthy.or(ready);
+    let mut set = JoinSet::new();
 
-    info!("Spawning Producer Thread");
-    let r = ready_flag.clone();
-    thread::spawn(move || loop {
-        let cx = Connection::insecure_open("amqp://rabbitmq:rabbitmq@rabbitmq:5672");
-        match cx {
-            Ok(connection) => {
-                info!("Service Ready");
-                {
-                    let mut t = r.lock().unwrap();
-                    *t = true;
-                }
-                produce_messages(connection).unwrap();
+    let (mqtt_client, mut mqtt_event_loop) = AsyncClient::new(context.config.mqtt.options(), 10);
+
+    set.spawn(launch_task(
+        "Sampler / Producer".to_string(),
+        monitor_current(mqtt_client),
+        context.clone(),
+        ShutdownType::Manual,
+    ));
+
+    set.spawn(launch_task(
+        "MQTT Event Loop".to_string(),
+        async move {
+            loop {
+                mqtt_event_loop.poll().await.map_err(|_| ConnectedHomeError::Mqtt)?;
             }
-            Err(_err) => {
-                warn!("Service Not Ready");
-                {
-                    let mut t = r.lock().unwrap();
-                    *t = false;
-                }
-                thread::sleep(Duration::from_millis(2000));
-            }
-        }
-    });
+        },
+        context.clone(),
+        ShutdownType::Manual,
+    ));
 
-    // we listen on all interfaces because we will be inside of a container
-    // and we do not know what IP we will be assigned
-    let addr = SocketAddr::from(([0, 0, 0, 0], 8082));
-    info!("Starting Producer on: {}", addr);
-    warp::serve(routes).run(addr).await;
+    set.spawn(launch_task(
+        "Signal Catcher".to_string(),
+        await_signal(context.clone()),
+        context.clone(),
+        ShutdownType::Manual,
+    ));
+
+    wait_for_tasks(&mut set, context.clone()).await;
+
     Ok(())
-}
-
-fn produce_messages(mut connection: Connection) -> Result<()> {
-    info!("{:?}", connection);
-    let channel = connection.open_channel(None)?;
-    let exchange = Exchange::direct(&channel);
-
-    for num in 0..u128::MAX {
-        info!("Publishing Message to RabbitMQ");
-        exchange.publish(Publish::new(
-            format!("hello there: {}", num).as_bytes(),
-            "hello",
-        ))?;
-        thread::sleep(Duration::from_millis(1000));
-    }
-    connection.close()
 }

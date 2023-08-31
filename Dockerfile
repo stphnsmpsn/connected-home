@@ -1,4 +1,4 @@
-FROM rust:1.63-slim-bullseye
+FROM rust:1.72.0-slim-bookworm
 ARG DEBIAN_FRONTEND=noninteractive
 RUN apt update && apt install -y \
     iputils-ping \

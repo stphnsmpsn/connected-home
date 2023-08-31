@@ -1,0 +1,19 @@
+[server]
+listen-address = "0.0.0.0"
+port = 8002
+
+[metrics]
+prefix = "ch"
+
+[tracing]
+level = "DEBUG"
+tempo-url = "http://localhost"
+tempo-port = 4317
+service-name = "consumer"
+
+[mqtt]
+host = "localhost"
+port = 1883
+username = "file:./.secrets/mqtt_username"
+password = "file:./.secrets/mqtt_password"
+client-id = "energy_consumer"

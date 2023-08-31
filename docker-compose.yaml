@@ -1,0 +1,107 @@
+version: "3.9"
+
+volumes:
+  prometheus_data: {}
+  grafana_data: {}
+  postgres_data: {}
+
+networks:
+  connectedhome:
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.20.0/24
+
+services:
+  tempo:
+    profiles: ["metrics"]
+    image: grafana/tempo:latest
+    networks:
+      - connectedhome
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - type: bind
+        source: ${PWD}/docker/tempo/config.yaml
+        target: /etc/tempo.yaml
+    ports:
+      - "14268:14268" # jaeger ingest
+      - "3200:3200" # tempo
+      - "4317:4317" # otlp grpc
+      - "4318:4318" # otlp http
+      - "9411:9411" # zipkin
+
+  prometheus:
+    profiles: ["metrics"]
+    image: prom/prometheus:v2.41.0
+    networks:
+      - connectedhome
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    container_name: prometheus
+    volumes:
+      - type: bind
+        source: ${PWD}/docker/prometheus
+        target: /etc/prometheus
+      - prometheus_data:/prometheus
+    expose:
+      - "9090"
+    ports:
+      - "9090:9090"
+
+  grafana:
+    profiles: ["metrics"]
+    image: grafana/grafana:9.3.2
+    networks:
+      - connectedhome
+    container_name: grafana
+    volumes:
+      - type: bind
+        source: ${PWD}/docker/grafana/provisioning
+        target: /etc/grafana/provisioning
+      - grafana_data:/var/lib/grafana
+    environment:
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+    expose:
+      - "3000"
+    ports:
+      - "3000:3000"
+
+  rabbitmq:
+    image: 'bitnami/rabbitmq:latest'
+    networks:
+      - connectedhome
+    ports:
+      - "5672:5672"   # AMQP
+      - "15672:15672" # Web UI
+      - "1883:1883"   # MQTT
+      - "15692:15692" # Rabbit MQ Prometheus
+    environment:
+        - RABBITMQ_USERNAME=connectedhome
+        - RABBITMQ_PASSWORD=connectedhome
+        - RABBITMQ_PLUGINS=rabbitmq_mqtt,rabbitmq_management,rabbitmq_management_agent,rabbitmq_web_dispatch
+
+
+  postgresql:
+    profiles: ["local"]
+    image: postgres:15.1-alpine
+    networks:
+      - connectedhome
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - type: bind
+        source: ${PWD}/docker/postgresql/init.sql
+        target: /docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+

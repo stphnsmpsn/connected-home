@@ -14,3 +14,9 @@ Cargo.lock
 tilt_modules/
 helm/**/charts/
 .python-version
+
+.DS_Store
+.env
+.secrets/
+
+config-local.toml

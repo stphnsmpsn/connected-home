@@ -1,20 +1,47 @@
 replicaCount: 1
+fullnameOverride: 'postgresql'
 
-postgresql:
-  fullnameOverride: 'postgresql'
-  postgresqlUsername: 'postgres'  # todo: manage as a secret using vault
-  postgresqlPassword: 'password'  # todo: manage as a secret using vault
-  persistence:
-    enabled: true
-  volumePermissions:
-    enabled: true
-  replication:
-    enabled: false
-  initdbScripts:
-    psql.sql: |
-#      PSQL COMMANDS HERE;
+image:
+  registry: docker.io
+  repository: bitnami/postgresql
+  tag: 15.4.0-debian-11-r10
+  digest: ""
+  pullPolicy: IfNotPresent
+  pullSecrets: []
+  debug: false
+
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+  storageClass: ""
+  postgresql:
+    auth: # todo: manage secrets using vault
+      postgresPassword: "password"
+      username: ""
+      password: ""
+      database: ""
+      existingSecret: ""
+      secretKeys:
+        adminPasswordKey: ""
+        userPasswordKey: ""
+        replicationPasswordKey: ""
+    service:
+      ports:
+        postgresql: ""
 
 serviceAccount:
   create: true
-  annotations: {}
   name: "postgresql"
+  automountServiceAccountToken: true
+  annotations: {}
+architecture: standalone
+containerPorts:
+  postgresql: 5432
+shmVolume:
+  enabled: true
+  sizeLimit: ""
+postgresqlDataDir: /bitnami/postgresql/data
+postgresqlSharedPreloadLibraries: "pgaudit"
+
+
+

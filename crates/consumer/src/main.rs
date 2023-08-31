@@ -1,78 +1,62 @@
 #[macro_use]
-extern crate log;
+extern crate slog;
 
-use amiquip::{Connection, ConsumerMessage, ConsumerOptions, QueueDeclareOptions, Result};
-use common::{make_healthy_filter, make_ready_filter};
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
-use std::{net::SocketAddr, thread};
-use warp::Filter;
+use crate::{config::Config, context::Context, tasks::energy_monitor::monitor_energy};
+use axum::Router;
+use common::{
+    error::ConnectedHomeResult,
+    tracing::init_tracing,
+    util::{
+        cli::{Args, Parser},
+        task::{await_signal, launch_task, wait_for_tasks, ShutdownType},
+    },
+};
+use std::sync::Arc;
+use tokio::task::JoinSet;
+
+mod config;
+mod context;
+mod metrics;
+mod server;
+mod tasks;
 
 #[tokio::main]
-async fn main() -> Result<(), ()> {
-    pretty_env_logger::init();
-    info!("Consumer Starting Up...");
+async fn main() -> ConnectedHomeResult<()> {
+    let args: Args<Config> = Args::parse();
+    let context = Arc::new(Context::from_args(args).await?);
 
-    let ready_flag = Arc::new(Mutex::new(false));
+    init_tracing(context.config.tracing.clone());
 
-    let ready = make_ready_filter(String::from("ready"), ready_flag.clone());
-    let healthy = make_healthy_filter(String::from("healthy"), ready_flag.clone());
+    info!(
+        context.logger,
+        "MQTT Consumer";
+        "version" => env!("CARGO_PKG_VERSION")
+    );
 
-    let routes = healthy.or(ready);
+    let mut set = JoinSet::new();
 
-    debug!("Spawning Consumer Thread");
-    let r = ready_flag.clone();
-    thread::spawn(move || loop {
-        let cx = Connection::insecure_open("amqp://rabbitmq:rabbitmq@rabbitmq:5672");
-        match cx {
-            Ok(connection) => {
-                info!("Service Ready");
-                {
-                    let mut t = r.lock().unwrap();
-                    *t = true;
-                }
-                consume_messages(connection).unwrap();
-            }
-            Err(_err) => {
-                debug!("Service Not Ready");
-                {
-                    let mut t = r.lock().unwrap();
-                    *t = false;
-                }
-                thread::sleep(Duration::from_millis(2000));
-            }
-        }
-    });
+    set.spawn(launch_task(
+        "MQTT Consumer".to_string(),
+        monitor_energy(context.clone()),
+        context.clone(),
+        ShutdownType::Manual,
+    ));
 
-    // we listen on all interfaces because we will be inside of a container
-    // and we do not know what IP we will be assigned
-    let addr = SocketAddr::from(([0, 0, 0, 0], 8082));
-    debug!("Starting Consumer on: {}", addr);
-    warp::serve(routes).run(addr).await;
+    set.spawn(launch_task(
+        "HTTP Server".to_string(),
+        server::Server::serve(context.clone(), Router::new()),
+        context.clone(),
+        ShutdownType::Manual,
+    ));
+
+    set.spawn(launch_task(
+        "Signal Catcher".to_string(),
+        await_signal(context.clone()),
+        context.clone(),
+        ShutdownType::Manual,
+    ));
+
+    wait_for_tasks(&mut set, context.clone()).await;
+
     Ok(())
-}
-
-fn consume_messages(mut connection: Connection) -> Result<()> {
-    debug!("{:?}", connection);
-    let channel = connection.open_channel(None).unwrap();
-    let queue = channel
-        .queue_declare("hello", QueueDeclareOptions::default())
-        .unwrap();
-
-    let consumer = queue.consume(ConsumerOptions::default()).unwrap();
-
-    for (i, message) in consumer.receiver().iter().enumerate() {
-        match message {
-            ConsumerMessage::Delivery(delivery) => {
-                let body = String::from_utf8_lossy(&delivery.body);
-                info!("({:>3}) Received [{}]", i.to_string(), body);
-                consumer.ack(delivery).unwrap();
-            }
-            other => {
-                warn!("Consumer ended: {:?}", other);
-                break;
-            }
-        }
-    }
-    connection.close()
 }

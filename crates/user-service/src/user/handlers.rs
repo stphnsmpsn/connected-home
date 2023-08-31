@@ -1,28 +1,26 @@
-use self::super::super::schema;
-use crate::user::User;
+use crate::{context::Context, repo::Repo};
+use argon2::Config;
 use chrono::{Duration, Utc};
-use diesel::{ExpressionMethods, PgConnection, QueryDsl, RunQueryDsl};
-use grpc::user::user_service_server::UserService;
+use common::{auth::jwt::Jwt, error::ConnectedHomeError};
 use grpc::user::{
-    LoginRequest, LoginResponse, Profile, ProfileRequest, ProfileResponse, RegisterRequest,
-    RegisterResponse,
+    user_service_server::UserService, LoginRequest, LoginResponse, Profile, ProfileRequest, ProfileResponse,
+    RegisterRequest, RegisterResponse,
 };
 use hmac::{Hmac, NewMac};
 use jwt::SignWithKey;
-use schema::users::dsl::*;
+use rand::Rng;
 use sha2::Sha256;
-use std::collections::BTreeMap;
-use std::fmt::{Debug, Formatter};
-use std::ops::Deref;
-use std::sync::{Arc, Mutex};
+use std::{
+    collections::BTreeMap,
+    fmt::{Debug, Formatter},
+    sync::Arc,
+};
 use tonic::{Code, Request, Response, Status};
 use tracing::instrument;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
-use types::jwt::Jwt;
 
-// defining a struct for our service
 pub struct MyUserService {
-    db: Arc<Mutex<PgConnection>>,
+    context: Arc<Context>,
 }
 
 impl Debug for MyUserService {
@@ -32,91 +30,76 @@ impl Debug for MyUserService {
 }
 
 impl MyUserService {
-    pub fn new(db: Arc<Mutex<PgConnection>>) -> Self {
-        Self { db }
+    pub fn new(context: Arc<Context>) -> Self {
+        Self { context }
     }
 }
 
 #[tonic::async_trait]
 impl UserService for MyUserService {
     #[instrument]
-    async fn register(
-        &self,
-        request: Request<RegisterRequest>,
-    ) -> Result<Response<RegisterResponse>, Status> {
+    async fn register(&self, request: Request<RegisterRequest>) -> Result<Response<RegisterResponse>, Status> {
         if let Some(request_context) = request.extensions().get::<grpc::RequestContext>() {
             let span = tracing::Span::current();
             span.set_parent(request_context.to_owned().tracing_context);
         }
 
-        let new_user = request
-            .into_inner()
-            .credentials
-            //.ok_or_else(|| Err(Status::new(Code::InvalidArgument, "")))?;
-            .unwrap();
+        let user_credentials = request.into_inner().credentials;
 
-        // todo: remove unwrap
-        let db = self.db.lock().unwrap();
+        let Some(new_user) = user_credentials else {
+            return Err(Status::new(Code::InvalidArgument, ""));
+        };
 
-        let results = users
-            .filter(username.eq(new_user.username.clone()))
-            .limit(1)
-            .load::<User>(db.deref())
-            .expect("Error querying user");
+        // let hashed_user = User::new(new_user.username, new_user.password);
 
-        if !results.is_empty() {
-            return Err(Status::new(
-                Code::InvalidArgument,
+        let result = self
+            .context
+            .get_db_conn()
+            .await
+            .unwrap()
+            .store_user(new_user.username, hash(new_user.password.as_bytes()))
+            .await;
+
+        match result {
+            Ok(user) => Ok(Response::new(RegisterResponse {
+                jwt: create_jwt(user.username.as_str()).to_string(),
+            })),
+            Err(ConnectedHomeError::UserAlreadyExists(_)) => Err(Status::new(
+                Code::AlreadyExists,
                 "A user with that name already exists.",
-            ));
+            )),
+            _ => Err(Status::new(
+                Code::Internal,
+                "Failed to register user. Please try again later.",
+            )),
         }
-
-        let hashed_user = User::new(new_user.username, new_user.password);
-
-        // TODO: handle error saving new user
-        diesel::insert_into(users)
-            .values(&hashed_user)
-            .execute(db.deref())
-            .unwrap();
-
-        Ok(Response::new(RegisterResponse {
-            jwt: create_jwt(hashed_user.username()).to_string(),
-        }))
     }
 
     #[instrument]
-    async fn login(
-        &self,
-        request: Request<LoginRequest>,
-    ) -> Result<Response<LoginResponse>, Status> {
+    async fn login(&self, request: Request<LoginRequest>) -> Result<Response<LoginResponse>, Status> {
         if let Some(request_context) = request.extensions().get::<grpc::RequestContext>() {
             let span = tracing::Span::current();
             span.set_parent(request_context.to_owned().tracing_context);
         }
 
-        // todo: remove unwrap
-        let credentials = request.into_inner().credentials.unwrap();
+        let Some(credentials) = request.into_inner().credentials else {
+            return Err(Status::new(Code::InvalidArgument, ""));
+        };
 
-        // todo: remove unwrap
-        let db = self.db.lock().unwrap();
+        let user_dto = self
+            .context
+            .get_db_conn()
+            .await
+            .unwrap()
+            .load_user(credentials.username)
+            .await
+            .unwrap()
+            .unwrap();
 
-        let results = users
-            .filter(username.eq(credentials.username.clone()))
-            .limit(1)
-            .load::<User>(db.deref())
-            .expect("Error querying user");
-
-        if let Some(user) = results.get(0) {
-            return if user.verify_password(credentials.password) {
-                Ok(Response::new(LoginResponse {
-                    jwt: create_jwt(user.username()).to_string(),
-                }))
-            } else {
-                Err(Status::new(
-                    Code::Unauthenticated,
-                    "Failed to authenticate with provided credentials",
-                ))
-            };
+        if user_dto.verify_password(credentials.password.as_str()) {
+            return Ok(Response::new(LoginResponse {
+                jwt: create_jwt(user_dto.username.as_str()).to_string(),
+            }));
         }
 
         Err(Status::new(
@@ -126,10 +109,7 @@ impl UserService for MyUserService {
     }
 
     #[instrument]
-    async fn profile(
-        &self,
-        request: Request<ProfileRequest>,
-    ) -> Result<Response<ProfileResponse>, Status> {
+    async fn profile(&self, request: Request<ProfileRequest>) -> Result<Response<ProfileResponse>, Status> {
         if let Some(request_context) = request.extensions().get::<grpc::RequestContext>() {
             let span = tracing::Span::current();
             span.set_parent(request_context.to_owned().tracing_context);
@@ -182,4 +162,11 @@ pub fn create_jwt(user: &str) -> Jwt {
         .expect("If this fails, we have an algorithm mismatch between token header and key");
 
     Jwt { token }
+}
+
+#[tracing::instrument]
+fn hash(password: &[u8]) -> String {
+    let salt = rand::thread_rng().gen::<[u8; 32]>();
+    let config = Config::default();
+    argon2::hash_encoded(password, &salt, &config).unwrap()
 }

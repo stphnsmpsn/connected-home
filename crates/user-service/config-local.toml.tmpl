@@ -1,0 +1,26 @@
+[http-server]
+listen-address = "0.0.0.0"
+port = 8001
+
+[grpc-server]
+listen-address = "0.0.0.0"
+port = 8083
+
+[metrics]
+prefix = "ch"
+
+[tracing]
+level = "DEBUG"
+tempo-url = "http://localhost"
+tempo-port = 4317
+service-name = "user_service"
+
+[postgres]
+hostname = "localhost"
+port = 5432
+database = "connectedhome"
+max_connections = 10
+username = "file:./.secrets/postgresql_username"
+password = "file:./.secrets/postgresql_password"
+
+[remote]

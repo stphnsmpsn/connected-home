@@ -1,20 +1,19 @@
-use hyper::header::ToStrError;
-use hyper::{Body, Request};
-use opentelemetry::propagation::TextMapPropagator;
-use opentelemetry::sdk::propagation::TraceContextPropagator;
-use std::collections::HashMap;
-use std::convert::TryFrom;
+use common::auth::jwt::Jwt;
+use hyper::{header::ToStrError, Body, Request};
+use opentelemetry::{propagation::TextMapPropagator, sdk::propagation::TraceContextPropagator};
 use std::{
+    collections::HashMap,
+    convert::TryFrom,
     task::{Context, Poll},
     time::Instant,
 };
-use tonic::body::BoxBody;
-use tonic::codegen::http::header::HeaderName;
-use tonic::codegen::http::HeaderValue;
-use tonic::metadata::{AsciiMetadataKey, AsciiMetadataValue, MetadataValue};
+use tonic::{
+    body::BoxBody,
+    codegen::http::{header::HeaderName, HeaderValue},
+    metadata::{AsciiMetadataKey, AsciiMetadataValue, MetadataValue},
+};
 use tower::{Layer, Service};
 use tracing_opentelemetry::OpenTelemetrySpanExt;
-use types::jwt::Jwt;
 
 pub mod user {
     tonic::include_proto!("user");
@@ -32,10 +31,7 @@ impl SendTracingContext {
 }
 
 impl tonic::service::Interceptor for SendTracingContext {
-    fn call(
-        &mut self,
-        mut request: tonic::Request<()>,
-    ) -> Result<tonic::Request<()>, tonic::Status> {
+    fn call(&mut self, mut request: tonic::Request<()>) -> Result<tonic::Request<()>, tonic::Status> {
         let span = tracing::Span::current();
         let context = span.context();
         let propagator = TraceContextPropagator::new();
@@ -46,11 +42,9 @@ impl tonic::service::Interceptor for SendTracingContext {
 
         for (k, v) in context_map.into_iter() {
             let metadata_key =
-                AsciiMetadataKey::from_bytes(HeaderName::try_from(k).unwrap().as_str().as_bytes())
-                    .unwrap();
+                AsciiMetadataKey::from_bytes(HeaderName::try_from(k).unwrap().as_str().as_bytes()).unwrap();
 
-            let metadata_value =
-                AsciiMetadataValue::try_from(HeaderValue::try_from(v).unwrap().as_bytes()).unwrap();
+            let metadata_value = AsciiMetadataValue::try_from(HeaderValue::try_from(v).unwrap().as_bytes()).unwrap();
 
             meta.insert(metadata_key, metadata_value);
         }
