@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate slog;
 
-use crate::{config::Config, context::Context, tasks::energy_monitor::monitor_energy};
+use crate::{config::Config, context::Context, tasks::mqtt_consumer::MqttConsumer};
 use axum::Router;
 use common::{
     error::ConnectedHomeResult,
@@ -37,7 +37,10 @@ async fn main() -> ConnectedHomeResult<()> {
 
     set.spawn(launch_task(
         "MQTT Consumer".to_string(),
-        monitor_energy(context.clone()),
+        {
+            let mut consumer = MqttConsumer::new(context.clone());
+            async move { consumer.start().await }
+        },
         context.clone(),
         ShutdownType::Manual,
     ));

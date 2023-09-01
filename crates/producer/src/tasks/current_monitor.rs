@@ -1,7 +1,7 @@
 use chrono::Utc;
 use common::{
     error::{ConnectedHomeError, ConnectedHomeResult},
-    mqtt::events::energy::CurrentMeasurement,
+    mqtt::events::{energy::CurrentMeasurement, ConnectedHomeEvent},
 };
 use rand::Rng;
 use rumqttc::{AsyncClient, QoS};
@@ -28,15 +28,15 @@ fn sample_current() -> f64 {
 }
 
 async fn publish_current_measurement(mqtt_client: &AsyncClient, device_id: Uuid, amps: f64) -> ConnectedHomeResult<()> {
-    let measurement = CurrentMeasurement {
+    let measurement = ConnectedHomeEvent::Current(CurrentMeasurement {
         device_id,
         timestamp: Utc::now(),
         amps: Decimal::try_from(amps).unwrap(),
-    };
+    });
     let serialized_measurement = serde_json::to_string(&measurement).unwrap();
 
-    Ok(mqtt_client
+    mqtt_client
         .publish("energy", QoS::AtLeastOnce, true, serialized_measurement)
         .await
-        .map_err(|_| ConnectedHomeError::Mqtt)?)
+        .map_err(|_| ConnectedHomeError::Mqtt)
 }

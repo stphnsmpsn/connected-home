@@ -27,6 +27,8 @@ pub enum ConnectedHomeError {
     UserAlreadyExists(String),
     #[error("TODO: MQTT ERROR")]
     Mqtt,
+    #[error("Failed to parse event from bytes")]
+    ParseEvent(Vec<u8>),
 }
 
 impl ConnectedHomeError {
