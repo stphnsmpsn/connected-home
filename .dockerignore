@@ -1,7 +1,2 @@
-target/debug
-target/release/.fingerprint
-target/release/build
-target/release/deps
-target/release/examples
-target/release/incremental
-target/
+**/node_modules
+.env

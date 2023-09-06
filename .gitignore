@@ -20,3 +20,4 @@ helm/**/charts/
 .secrets/
 
 config-local.toml
+.cargo_docker_cache

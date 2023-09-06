@@ -1,4 +1,5 @@
 .PHONY: frontend helm-update
+ROOT_DIR:=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 
 # ----------------------------------------
 #  Bring Localstack Up
@@ -36,8 +37,48 @@ hooks:
 #  Make docker builder
 # ----------------------------------------
 
-builder:
-	docker build -f dockerfiles/Build . -t rustbuilder
+rust-builder:
+	docker build -f docker/rust/builder.Dockerfile ./docker/rust/ -t stephensampson.dev/connected-home/rust-builder:latest
+
+# ----------------------------------------
+#  Make docker builder
+# ----------------------------------------
+
+cargo-build-docker:
+	mkdir -p ./.cargo_docker_cache
+	docker run -u $(id -u ${USER}):$(id -g ${USER}) \
+		--mount=target=/app,type=bind,source=${ROOT_DIR} \
+		-e CARGO_BUILD_INCREMENTAL=true \
+		-e SQLX_OFFLINE=true \
+		-e PROFILE=debug \
+		-e CARGO_TARGET_DIR=target/docker \
+		-e CARGO_HOME=/app/.cargo_docker_cache \
+		stephensampson.dev/connected-home/rust-builder:latest cargo build -j1	# this fails sporadically with multiple jobs on OS X
+
+# ----------------------------------------
+#  Clean Rust Applications in Docker
+# ----------------------------------------
+
+cargo-clean-docker:
+	mkdir -p ./.cargo_docker_cache
+	docker run -u $(id -u ${USER}):$(id -g ${USER}) \
+		--mount=target=/app,type=bind,source=${ROOT_DIR} \
+		-e PROFILE=debug \
+		-e CARGO_TARGET_DIR=target/docker \
+		-e CARGO_HOME=/app/.cargo_docker_cache \
+		stephensampson.dev/connected-home/rust-builder:latest cargo clean
+
+# ----------------------------------------
+#  Compile Rust Applications in Docker
+# ----------------------------------------
+
+pack-rust-docker:
+	docker build -f docker/rust/service.Dockerfile \
+		--tag stephensampson.dev/connected-home/api-gateway:latest \
+    	--tag stephensampson.dev/connected-home/consumer:latest \
+    	--tag stephensampson.dev/connected-home/producer:latest \
+    	--tag stephensampson.dev/connected-home/user-service:latest \
+		.
 
 # ----------------------------------------
 #  Run Database Migrations
