@@ -1,6 +1,6 @@
 dependencies:
-- name: vault
-  repository: https://helm.releases.hashicorp.com
-  version: 0.17.1
-digest: sha256:fbd1ee7c577796f295668fbbc134930f915345a4a8c33904f675215f222f13ff
-generated: "2021-11-14T18:37:51.017165409-04:00"
+- name: common
+  repository: oci://registry-1.docker.io/bitnamicharts
+  version: 2.11.1
+digest: sha256:ead8f26c76a9ec082f23629a358e8efd8f88d87aaed734bf41febcb8a7bc5d4c
+generated: "2023-09-18T16:38:57.810819+02:00"

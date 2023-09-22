@@ -151,23 +151,27 @@ k8s_resource(
 #                                       Vault
 ###################################################################################################
 
-#k8s_yaml(helm(
-#    './helm/vault',
-#    name='vault',
-#    values=[
-#        'helm/vault/values.yaml'
-#    ]
-#))
-#k8s_resource(
-#    workload='vault',
-#    resource_deps=[
-#        'update-helm',
-#    ],
-#    port_forwards=[
-#      port_forward(8200, 8200, name='Vault Port'),
-#    ],
-#    labels=['Vault']
-#)
+k8s_yaml(helm(
+    './helm/vault',
+    name='vault',
+    values=[
+        'helm/vault/values.yaml'
+    ]
+))
+k8s_resource(
+    workload='vault-server',
+    port_forwards=[
+      port_forward(8200, 8200, name='VaultUI'),
+    ],
+    labels=['Vault'],
+)
+
+local_resource(
+    'vault-init',
+    cmd='./scripts/vault-init.sh',
+    labels=['Vault'],
+    allow_parallel = True
+)
 
 ###################################################################################################
 #                                       Frontend
